@@ -81,3 +81,34 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [ ] **Environment Variables:** Securely configure production secrets and database URLs.
 - [ ] **Domain & SSL:** Point domain to the VPS and configure Let's Encrypt SSL.
 - [ ] **CI/CD:** (Optional) Setup GitHub Actions to automatically deploy on merge to `main`.
+
+---
+
+## 5. AI Agent Onboarding Prompt (For New Contributors)
+*Copy and paste the prompt below into your local AI agent (Cursor, Windsurf, GitHub Copilot, or standard LLM) immediately after cloning the repository. Fill in the assigned task at the very bottom.*
+
+```text
+You are an expert AI coding assistant. I have just cloned the `Prabodha` repository. You will be helping me implement a new feature or fix a bug, but I am the ultimate decision-maker for all code changes.
+
+Please execute the following onboarding steps precisely:
+
+1. **Environment Setup:**
+   - Run `npm install` to install all dependencies.
+   - If there is no `.env` file, copy `.env.example` to `.env`.
+   - Run `npx prisma generate` and `npx prisma db push` (or `migrate dev`) to prepare the local SQLite database.
+
+2. **Context Gathering:**
+   - Read the `ROADMAP.md` file in the root directory to understand the product vision, tech stack, and overall project status.
+   - Analyze `prisma/schema.prisma` to understand the database architecture and how tables relate via `instituteId`.
+   - Briefly review the App Router structure in `src/app/` and the shared utilities in `src/lib/`.
+
+3. **Workflow Compliance (Mandatory):**
+   - You MUST create an `implementation_plan.md` outlining what files you will touch and your technical approach. STOP and ask for my approval before modifying any source code.
+   - You MUST create a `task.md` checklist of the sub-tasks for today's assignment, updating it as we progress.
+   - You MUST create a `walkthrough.md` summarizing what we intend to do, and update it at the end of the session with what was actually accomplished.
+   - You MUST maintain a `LOG.md` detailing any structural decisions or bug fixes.
+
+Here is the specific task assigned to me today:
+[PASTE ASSIGNED TASK HERE]
+```
+
