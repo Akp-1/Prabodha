@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
-import { hashPassword, signToken } from '@/lib/auth';
+import { hashPassword, signToken, type Role } from '@/lib/auth';
 import { apiHandler, ApiError } from '@/lib/rbac';
 import { slugify } from '@/lib/slugify';
 
@@ -54,7 +54,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     return { institute, admin };
   });
 
-  const token = signToken({ sub: admin.id, instituteId: institute.id, role: admin.role });
+  const token = signToken({ sub: admin.id, instituteId: institute.id, role: admin.role as Role });
 
   return NextResponse.json(
     {

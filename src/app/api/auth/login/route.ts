@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { verifyPassword, signToken } from '@/lib/auth';
+import { verifyPassword, signToken, type Role } from '@/lib/auth';
 import { apiHandler, ApiError } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
   const passwordOk = await verifyPassword(password, user.passwordHash);
   if (!passwordOk) throw new ApiError(401, 'Invalid email or password');
 
-  const token = signToken({ sub: user.id, instituteId: institute.id, role: user.role });
+  const token = signToken({ sub: user.id, instituteId: institute.id, role: user.role as Role });
 
   return NextResponse.json({
     token,

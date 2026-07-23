@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import type { Role } from '@prisma/client';
+
+export type Role = 'admin' | 'teacher' | 'student' | 'parent';
 
 const SALT_ROUNDS = 10;
 

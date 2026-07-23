@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken, TokenPayload } from './auth';
-import type { Role } from '@prisma/client';
+import { verifyToken, TokenPayload, type Role } from './auth';
 
 /**
  * Thrown by requireAuth/requireRole and caught by apiHandler below. Lets

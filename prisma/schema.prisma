@@ -2,51 +2,37 @@
 // This is the single source of truth for the database. Every table from
 // the original Modules 1-10 design lives here now, translated from raw SQL
 // into Prisma models. Run `npx prisma migrate dev` after changing this file.
+//
+// NOTE: Currently configured for SQLite (local dev). For production,
+// change provider to "postgresql" and restore @db.Date/@db.Time annotations.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  admin
-  teacher
-  student
-  parent
-}
-
-enum MaterialType {
-  pdf
-  image
-  note
-  link
-}
-
-enum AttendanceStatus {
-  present
-  absent
-}
-
-enum HomeworkCompletionStatus {
-  pending
-  completed
-}
+// Enums removed for SQLite compatibility. 
+// For production with PostgreSQL, restore these enums:
+// enum Role { admin, teacher, student, parent }
+// enum MaterialType { pdf, image, note, link }
+// enum AttendanceStatus { present, absent }
+// enum HomeworkCompletionStatus { pending, completed }
 
 // ---------------------------------------------------------------------------
 // Module 1 — Authentication & Institutes
 // ---------------------------------------------------------------------------
 
 model Institute {
-  id           String   @id @default(uuid())
+  id           String   @id @default(cuid())
   name         String
   slug         String   @unique
   logoUrl      String?  @map("logo_url")
   academicYear String?  @map("academic_year")
-  workingDays  String[] @default(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) @map("working_days")
+  workingDays  String   @default("Mon,Tue,Wed,Thu,Fri,Sat") @map("working_days")
   createdAt    DateTime @default(now()) @map("created_at")
 
   users               User[]
@@ -63,9 +49,9 @@ model Institute {
 }
 
 model User {
-  id               String    @id @default(uuid())
+  id               String    @id @default(cuid())
   instituteId      String    @map("institute_id")
-  role             Role
+  role             String    // admin, teacher, student, parent
   name             String
   email            String
   phone            String?
@@ -78,10 +64,10 @@ model User {
   experienceYears  Int?      @map("experience_years")
 
   // student-only profile fields
-  dateOfBirth      DateTime? @map("date_of_birth") @db.Date
+  dateOfBirth      DateTime? @map("date_of_birth")
   address          String?
   parentName       String?   @map("parent_name")
-  enrollmentDate   DateTime? @default(now()) @map("enrollment_date") @db.Date
+  enrollmentDate   DateTime? @default(now()) @map("enrollment_date")
   batchId          String?   @map("batch_id")
 
   institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
@@ -103,7 +89,7 @@ model User {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   userId    String   @map("user_id")
   tokenHash String   @map("token_hash")
   expiresAt DateTime @map("expires_at")
@@ -121,7 +107,7 @@ model PasswordResetToken {
 // ---------------------------------------------------------------------------
 
 model Batch {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   instituteId String   @map("institute_id")
   name        String
   createdAt   DateTime @default(now()) @map("created_at")
@@ -137,7 +123,7 @@ model Batch {
 }
 
 model Subject {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   instituteId String   @map("institute_id")
   name        String
   createdAt   DateTime @default(now()) @map("created_at")
@@ -155,7 +141,7 @@ model Subject {
 /// Powers Module 6 (subject assignment), Module 3 (teacher's assignments),
 /// and Module 5 (batch's assigned teachers) all from one table.
 model BatchSubjectTeacher {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   instituteId String   @map("institute_id")
   batchId     String   @map("batch_id")
   subjectId   String   @map("subject_id")
@@ -175,7 +161,7 @@ model BatchSubjectTeacher {
 }
 
 model ParentStudentLink {
-  id          String @id @default(uuid())
+  id          String @id @default(cuid())
   instituteId String @map("institute_id")
   parentId    String @map("parent_id")
   studentId   String @map("student_id")
@@ -193,12 +179,12 @@ model ParentStudentLink {
 // ---------------------------------------------------------------------------
 
 model TimetableSlot {
-  id                    String   @id @default(uuid())
+  id                    String   @id @default(cuid())
   instituteId           String   @map("institute_id")
   batchSubjectTeacherId String   @map("batch_subject_teacher_id")
   dayOfWeek             Int      @map("day_of_week") // 0 = Sunday .. 6 = Saturday
-  startTime             DateTime @map("start_time") @db.Time
-  endTime               DateTime @map("end_time") @db.Time
+  startTime             DateTime @map("start_time")
+  endTime               DateTime @map("end_time")
   classroom             String?
   createdAt             DateTime @default(now()) @map("created_at")
 
@@ -216,10 +202,10 @@ model TimetableSlot {
 // ---------------------------------------------------------------------------
 
 model AttendanceSession {
-  id                    String   @id @default(uuid())
+  id                    String   @id @default(cuid())
   instituteId           String   @map("institute_id")
   batchSubjectTeacherId String   @map("batch_subject_teacher_id")
-  sessionDate           DateTime @map("session_date") @db.Date
+  sessionDate           DateTime @map("session_date")
   markedBy              String   @map("marked_by")
   submittedAt           DateTime @default(now()) @map("submitted_at")
 
@@ -234,10 +220,10 @@ model AttendanceSession {
 }
 
 model AttendanceRecord {
-  id        String            @id @default(uuid())
+  id        String            @id @default(cuid())
   sessionId String            @map("session_id")
   studentId String            @map("student_id")
-  status    AttendanceStatus
+  status    String            // present, absent
 
   session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student User              @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
@@ -253,14 +239,14 @@ model AttendanceRecord {
 // ---------------------------------------------------------------------------
 
 model StudyMaterial {
-  id            String       @id @default(uuid())
+  id            String       @id @default(cuid())
   instituteId   String       @map("institute_id")
   batchId       String       @map("batch_id")
   subjectId     String       @map("subject_id")
   uploadedBy    String       @map("uploaded_by")
   title         String
   description   String?
-  materialType  MaterialType @map("material_type")
+  materialType  String       @map("material_type") // pdf, image, note, link
   fileUrl       String?      @map("file_url")
   filePath      String?      @map("file_path")
   externalLink  String?      @map("external_link")
@@ -277,14 +263,14 @@ model StudyMaterial {
 }
 
 model Homework {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   instituteId String   @map("institute_id")
   batchId     String   @map("batch_id")
   subjectId   String   @map("subject_id")
   assignedBy  String   @map("assigned_by")
   title       String
   description String?
-  dueDate     DateTime @map("due_date") @db.Date
+  dueDate     DateTime @map("due_date")
   fileUrl     String?  @map("file_url")
   filePath    String?  @map("file_path")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -303,10 +289,10 @@ model Homework {
 /// Per-student completion tracking, created for every student the moment
 /// homework is assigned. This is what a parent's "homework status" view reads.
 model HomeworkStatus {
-  id         String                    @id @default(uuid())
+  id         String                    @id @default(cuid())
   homeworkId String                    @map("homework_id")
   studentId  String                    @map("student_id")
-  status     HomeworkCompletionStatus  @default(pending)
+  status     String                    @default("pending") // pending, completed
   updatedAt  DateTime                  @default(now()) @map("updated_at")
 
   homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)

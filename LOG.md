@@ -52,10 +52,24 @@
 - **Design system:** Custom pine/saffron/paper palette, 3 font families, Tailwind config
 - **Git:** Not initialized (`.git/` directory empty)
 
-### What's pending
-- Entity CRUD API routes (teachers, students, batches, subjects, timetable, attendance, materials, homework)
+### Key decisions
+- **Database:** SQLite for local dev (zero install), PostgreSQL for production VPS. MongoDB ruled out (NoSQL doesn't fit relational schema).
+- **Priority:** Batches + Subjects APIs first (foundation entities)
+- **Delete behavior:** Soft delete for people (`isActive=false`), hard delete for structure (batches/subjects)
+- **Teacher access:** Replicate legacy teacher-scoped student access
+- **Approach:** API-first — build routes today, wire dashboard next session
+- **Git:** Initialized, connected to `https://github.com/Akp-1/Prabodha.git`, first commit pushed (75 files, 12,291 lines)
+
+### Git setup
+- Initialized repo, created `.gitignore`
+- Remote: `origin` → `https://github.com/Akp-1/Prabodha.git`
+- First commit: `5a266e9` — "initial commit: clean project scaffold with auth API, dashboard shell, and Prisma schema"
+- Pushed to `main` branch
+
+### What's pending (deferred to next session)
+- Teachers + Students CRUD APIs (with teacher-scoped access)
 - Wire dashboard pages from localStorage mock → real Prisma-backed API calls
-- Git initialization + first commit
+- Timetable, Attendance, Materials, Homework APIs
 
 ---
 
