@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vector Classes — Computer Science Coaching, Class XI–XII</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --navy: #16233F;
+    --navy-deep: #0E1830;
+    --line: rgba(127,179,213,0.28);
+    --line-strong: rgba(127,179,213,0.55);
+    --paper: #F4F7FA;
+    --paper-dim: #E8EDF2;
+    --ink: #101826;
+    --ink-soft: #4B5A70;
+    --amber: #F2A93B;
+    --amber-deep: #D98F1F;
+    --coral: #FF6B5B;
+    --display: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family: var(--body);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  a{color:inherit;text-decoration:none;}
+  img{max-width:100%;display:block;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
+  section{position:relative;}
+  ::selection{background:var(--amber);color:var(--navy-deep);}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  /* ---------- NAV ---------- */
+  header{
+    position:sticky; top:0; z-index:100;
+    background:rgba(244,247,250,0.88);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--paper-dim);
+  }
+  .nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 32px; max-width:1180px; margin:0 auto;
+  }
+  .logo{
+    font-family:var(--display); font-weight:700; font-size:19px;
+    display:flex; align-items:center; gap:10px; letter-spacing:0.01em;
+  }
+  .logo .mark{
+    width:26px;height:26px; flex-shrink:0;
+  }
+  .logo small{
+    display:block; font-family:var(--mono); font-weight:400; font-size:10.5px;
+    color:var(--ink-soft); letter-spacing:0.06em; margin-top:1px;
+  }
+  nav.links{display:flex; gap:34px; font-size:14.5px; font-weight:500;}
+  nav.links a{color:var(--ink-soft); transition:color .2s;}
+  nav.links a:hover{color:var(--ink);}
+  .btn{
+    font-family:var(--body); font-weight:600; font-size:14px;
+    padding:11px 22px; border-radius:3px; border:none; cursor:pointer;
+    display:inline-flex; align-items:center; gap:8px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary{
+    background:var(--amber); color:var(--navy-deep);
+    box-shadow:0 2px 0 var(--amber-deep);
+  }
+  .btn-primary:hover{transform:translateY(-1px); box-shadow:0 3px 0 var(--amber-deep);}
+  .btn-primary:active{transform:translateY(1px); box-shadow:0 1px 0 var(--amber-deep);}
+  .btn-ghost{
+    background:transparent; color:var(--navy); border:1.5px solid var(--navy);
+  }
+  .btn-ghost:hover{background:var(--navy); color:var(--paper);}
+  .nav-cta{display:none;}
+  @media(min-width:820px){.nav-cta{display:inline-flex;}}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    background:
+      linear-gradient(180deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color:var(--paper);
+    overflow:hidden;
+    padding:88px 0 0;
+  }
+  .hero-grid-bg{
+    position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 44px),
+      repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 44px);
+    mask-image: radial-gradient(ellipse 85% 70% at 50% 30%, black 40%, transparent 90%);
+    opacity:.9;
+  }
+  .hero-inner{
+    position:relative; max-width:1180px; margin:0 auto; padding:64px 32px 0;
+    display:grid; grid-template-columns:1.1fr 1fr; gap:40px; align-items:center;
+  }
+  @media(max-width:900px){.hero-inner{grid-template-columns:1fr; padding-top:40px;}}
+
+  .eyebrow{
+    font-family:var(--mono); font-size:12.5px; letter-spacing:0.14em;
+    color:var(--amber); text-transform:uppercase; margin-bottom:18px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:''; width:22px; height:1.5px; background:var(--amber);}
+
+  h1{
+    font-family:var(--display); font-weight:700;
+    font-size:clamp(34px, 5vw, 58px); line-height:1.06; letter-spacing:-0.01em;
+    margin-bottom:22px;
+  }
+  h1 .accent{color:var(--amber); font-style:normal;}
+  .hero p.lede{
+    font-size:17px; color:#C7D3E3; max-width:480px; margin-bottom:34px;
+  }
+  .hero-ctas{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:56px;}
+  .btn-outline-light{
+    background:transparent; color:var(--paper); border:1.5px solid rgba(244,247,250,0.4);
+  }
+  .btn-outline-light:hover{border-color:var(--paper); background:rgba(244,247,250,0.06);}
+
+  .hero-stats{
+    display:flex; gap:0; border-top:1px solid var(--line-strong);
+  }
+  .hero-stat{
+    flex:1; padding:20px 0; border-right:1px solid var(--line-strong);
+  }
+  .hero-stat:last-child{border-right:none;}
+  .hero-stat .n{
+    font-family:var(--mono); font-size:26px; font-weight:500; color:var(--amber);
+  }
+  .hero-stat .l{
+    font-size:12px; color:#9FB0C6; margin-top:3px;
+  }
+
+  /* Vector plot graphic */
+  .plot-wrap{position:relative;}
+  .plot-svg{width:100%; height:auto; overflow:visible;}
+  .plot-path{
+    stroke:var(--amber); stroke-width:2.5; fill:none;
+    stroke-dasharray:600; stroke-dashoffset:600;
+    animation:draw 2.2s ease forwards .4s;
+  }
+  .plot-path2{
+    stroke:var(--coral); stroke-width:2; fill:none;
+    stroke-dasharray:600; stroke-dashoffset:600;
+    animation:draw 2.4s ease forwards .8s;
+    opacity:0.75;
+  }
+  @keyframes draw{to{stroke-dashoffset:0;}}
+  .plot-dot{fill:var(--amber); opacity:0; animation:pop .4s ease forwards 2.5s;}
+  @keyframes pop{to{opacity:1;}}
+  .plot-label{
+    font-family:var(--mono); font-size:11px; fill:#9FB0C6;
+  }
+
+  /* ---------- MARQUEE / TRUST STRIP ---------- */
+  .strip{
+    background:var(--navy-deep); border-top:1px solid var(--line);
+    color:#8FA2BC; font-family:var(--mono); font-size:12px; letter-spacing:.08em;
+    padding:14px 0; text-align:center; text-transform:uppercase;
+  }
+
+  /* ---------- SECTION HEADERS ---------- */
+  .sec-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:24px; margin-bottom:44px; flex-wrap:wrap;
+  }
+  .sec-tag{
+    font-family:var(--mono); font-size:12px; letter-spacing:.12em;
+    color:var(--amber-deep); text-transform:uppercase; margin-bottom:10px;
+    display:block;
+  }
+  .sec-head h2{
+    font-family:var(--display); font-weight:700;
+    font-size:clamp(26px,3.4vw,38px); letter-spacing:-0.01em; max-width:560px;
+  }
+  .sec-head p{color:var(--ink-soft); max-width:340px; font-size:15px;}
+
+  /* ---------- WHY US ---------- */
+  .why{padding:96px 0; background:var(--paper);}
+  .why-grid{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--paper-dim); border:1px solid var(--paper-dim);
+  }
+  @media(max-width:760px){.why-grid{grid-template-columns:1fr 1fr;}}
+  @media(max-width:520px){.why-grid{grid-template-columns:1fr;}}
+  .why-card{
+    background:var(--paper); padding:32px 26px; position:relative;
+    transition:background .2s;
+  }
+  .why-card:hover{background:#FDFBF6;}
+  .why-num{
+    font-family:var(--mono); font-size:11px; color:var(--ink-soft);
+    position:absolute; top:22px; right:24px;
+  }
+  .why-icon{margin-bottom:22px;}
+  .why-card h3{
+    font-family:var(--display); font-size:17.5px; font-weight:600; margin-bottom:9px;
+  }
+  .why-card p{font-size:14px; color:var(--ink-soft);}
+
+  /* ---------- COURSES ---------- */
+  .courses{padding:96px 0; background:var(--navy); color:var(--paper); position:relative; overflow:hidden;}
+  .courses::before{
+    content:''; position:absolute; inset:0;
+    background-image: repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 48px);
+    opacity:.5; pointer-events:none;
+  }
+  .courses .sec-head h2{color:var(--paper);}
+  .courses .sec-head p{color:#9FB0C6;}
+  .course-list{position:relative; display:flex; flex-direction:column; gap:1px;}
+  .course-row{
+    display:grid; grid-template-columns:90px 1.4fr 1fr 1fr auto;
+    align-items:center; gap:24px;
+    padding:26px 4px; border-top:1px solid var(--line);
+  }
+  .course-row:last-child{border-bottom:1px solid var(--line);}
+  @media(max-width:860px){
+    .course-row{grid-template-columns:1fr; gap:10px; padding:26px 20px; background:rgba(255,255,255,0.02);}
+  }
+  .course-code{font-family:var(--mono); color:var(--amber); font-size:14px;}
+  .course-title{font-family:var(--display); font-weight:600; font-size:19px;}
+  .course-title span{display:block; font-family:var(--body); font-weight:400; font-size:13px; color:#9FB0C6; margin-top:4px;}
+  .course-meta{font-size:13.5px; color:#C7D3E3;}
+  .course-meta b{color:var(--paper); font-weight:600; display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#7A8CA6; margin-bottom:3px;}
+  .course-row .btn-ghost{border-color:rgba(244,247,250,0.35); color:var(--paper);}
+  .course-row .btn-ghost:hover{background:var(--paper); color:var(--navy); border-color:var(--paper);}
+
+  /* ---------- RESULTS ---------- */
+  .results{padding:96px 0; background:var(--paper);}
+  .results-grid{display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start;}
+  @media(max-width:860px){.results-grid{grid-template-columns:1fr; gap:48px;}}
+
+  .chart{
+    background:var(--navy-deep); border-radius:4px; padding:32px 28px 24px;
+    border:1px solid var(--paper-dim);
+  }
+  .chart-title{font-family:var(--mono); font-size:12px; color:var(--amber); letter-spacing:.08em; text-transform:uppercase; margin-bottom:22px;}
+  .bars{display:flex; align-items:flex-end; gap:16px; height:170px; border-bottom:1px solid var(--line-strong); padding-bottom:0;}
+  .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
+  .bar{
+    width:100%; max-width:34px; background:linear-gradient(180deg, var(--amber), var(--amber-deep));
+    border-radius:2px 2px 0 0; height:0; animation:rise 1.1s ease forwards;
+  }
+  @keyframes rise{to{height:var(--h);}}
+  .bar-label{font-family:var(--mono); font-size:10.5px; color:#9FB0C6; margin-top:10px;}
+  .bar-val{font-family:var(--mono); font-size:11px; color:var(--paper); margin-bottom:6px;}
+
+  .testimonials{display:flex; flex-direction:column; gap:1px; background:var(--paper-dim); border:1px solid var(--paper-dim);}
+  .t-card{background:var(--paper); padding:26px 28px;}
+  .t-quote{font-size:15px; color:var(--ink); margin-bottom:14px; font-family:var(--display); line-height:1.5;}
+  .t-quote::before{content:'"'; color:var(--amber-deep);}
+  .t-who{font-family:var(--mono); font-size:12px; color:var(--ink-soft);}
+
+  .note{
+    font-size:12.5px; color:var(--ink-soft); margin-top:16px; font-style:italic;
+  }
+
+  /* ---------- CONTACT ---------- */
+  .contact{padding:96px 0 110px; background:var(--paper-dim);}
+  .contact-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:0;
+    background:var(--paper); border:1px solid var(--ink);
+  }
+  @media(max-width:860px){.contact-grid{grid-template-columns:1fr;}}
+  .contact-info{padding:48px 44px; background:var(--navy); color:var(--paper); position:relative; overflow:hidden;}
+  .contact-info::before{
+    content:''; position:absolute; inset:0;
+    background-image: repeating-linear-gradient(45deg, var(--line) 0 1px, transparent 1px 30px);
+    opacity:.35;
+  }
+  .contact-info h3{font-family:var(--display); font-size:26px; font-weight:700; margin-bottom:14px; position:relative;}
+  .contact-info p{color:#C7D3E3; font-size:14.5px; margin-bottom:28px; max-width:340px; position:relative;}
+  .contact-line{display:flex; gap:12px; align-items:flex-start; margin-bottom:18px; font-size:14px; position:relative;}
+  .contact-line b{font-family:var(--mono); font-size:11px; color:var(--amber); text-transform:uppercase; letter-spacing:.06em; display:block; margin-bottom:2px;}
+
+  .contact-form{padding:48px 44px;}
+  .field{margin-bottom:18px;}
+  .field label{
+    display:block; font-family:var(--mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--ink-soft); margin-bottom:7px;
+  }
+  .field input, .field select{
+    width:100%; padding:12px 14px; border:1.5px solid var(--paper-dim);
+    background:var(--paper); font-family:var(--body); font-size:14.5px; border-radius:3px;
+    color:var(--ink); transition:border-color .15s;
+  }
+  .field input:focus, .field select:focus{outline:none; border-color:var(--navy);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:480px){.row2{grid-template-columns:1fr;}}
+  .form-submit{width:100%; justify-content:center; margin-top:6px;}
+
+  /* ---------- FOOTER ---------- */
+  footer{background:var(--navy-deep); color:#7A8CA6; padding:36px 0; font-size:13px;}
+  .foot-row{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;}
+  .foot-links{display:flex; gap:22px;}
+  .foot-links a:hover{color:var(--paper);}
+
+  /* reveal on scroll */
+  .reveal{opacity:0; transform:translateY(16px); transition:opacity .6s ease, transform .6s ease;}
+  .reveal.in{opacity:1; transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <div class="logo">
+      <svg class="mark" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="26" height="26" rx="3" fill="#16233F"/>
+        <path d="M6 19L13 7L20 19" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9.5 14L13 7L16.5 14" stroke="#FF6B5B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+      </svg>
+      <div>VECTOR CLASSES<small>COMPUTER SCIENCE · CLASS XI–XII</small></div>
+    </div>
+    <nav class="links">
+      <a href="#why">Why Us</a>
+      <a href="#courses">Courses</a>
+      <a href="#results">Results</a>
+      <a href="#contact">Contact</a>
+    </nav>
+    <a href="#contact" class="btn btn-primary nav-cta">Book Free Class</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">Enrolling now · Batch 2026–27</div>
+      <h1>Plot your path to a<br><em class="accent">top score</em> in Computer Science.</h1>
+      <p class="lede">Structured coaching for Class XI &amp; XII — built around board exams, concept clarity, and steady, measurable progress from day one.</p>
+      <div class="hero-ctas">
+        <a href="#contact" class="btn btn-primary">Book a Free Demo Class</a>
+        <a href="#courses" class="btn btn-outline-light">View Courses</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="n">500+</div><div class="l">Students taught</div></div>
+        <div class="hero-stat"><div class="n">92%</div><div class="l">Scored above 85%</div></div>
+        <div class="hero-stat"><div class="n">8:1</div><div class="l">Student-teacher ratio</div></div>
+      </div>
+    </div>
+    <div class="plot-wrap">
+      <svg class="plot-svg" viewBox="0 0 420 340">
+        <!-- axes -->
+        <line x1="40" y1="20" x2="40" y2="300" stroke="rgba(127,179,213,0.5)" stroke-width="1.5"/>
+        <line x1="40" y1="300" x2="400" y2="300" stroke="rgba(127,179,213,0.5)" stroke-width="1.5"/>
+        <text x="8" y="24" class="plot-label">score</text>
+        <text x="360" y="320" class="plot-label">time</text>
+        <!-- trajectory -->
+        <path class="plot-path" d="M40 270 C 110 260, 140 220, 190 190 S 280 130, 400 40" />
+        <path class="plot-path2" d="M40 280 C 120 278, 170 260, 220 250 S 300 220, 400 190" />
+        <circle class="plot-dot" cx="400" cy="40" r="5"/>
+        <text x="330" y="30" class="plot-label" fill="#F2A93B">target</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<div class="strip">Board Exam Prep &nbsp;·&nbsp; Practical Files &nbsp;·&nbsp; Weekly Tests &nbsp;·&nbsp; Doubt Clearing &nbsp;·&nbsp; Digital Study Material</div>
+
+<section class="why" id="why">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <span class="sec-tag">§1 — Why Vector Classes</span>
+        <h2>Coaching designed around how CS is actually examined.</h2>
+      </div>
+      <p>Every part of the course is mapped back to the board syllabus and marking scheme — nothing taught in isolation.</p>
+    </div>
+    <div class="why-grid">
+      <div class="why-card reveal">
+        <div class="why-num">A</div>
+        <div class="why-icon"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><rect x="4" y="4" width="22" height="22" rx="2" stroke="#16233F" stroke-width="1.6"/><path d="M9 15L13 19L21 10" stroke="#F2A93B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <h3>Syllabus-mapped curriculum</h3>
+        <p>Every unit tied directly to the current CBSE Computer Science syllabus and past-year question patterns.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-num">B</div>
+        <div class="why-icon"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><circle cx="15" cy="15" r="11" stroke="#16233F" stroke-width="1.6"/><path d="M15 9V15L19 18" stroke="#F2A93B" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <h3>Weekly doubt-clearing</h3>
+        <p>Dedicated sessions every week so questions get answered before they turn into gaps.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-num">C</div>
+        <div class="why-icon"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M5 22V8L15 4L25 8V22" stroke="#16233F" stroke-width="1.6" stroke-linejoin="round"/><path d="M5 8L15 12L25 8" stroke="#F2A93B" stroke-width="1.6"/></svg></div>
+        <h3>Theory + practical balance</h3>
+        <p>Programming practicals run alongside theory, not as an afterthought before the exam.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-num">D</div>
+        <div class="why-icon"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M4 24L11 10L17 18L26 5" stroke="#16233F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="26" cy="5" r="2" fill="#F2A93B"/></svg></div>
+        <h3>Regular assessments</h3>
+        <p>Timed weekly tests and full mock papers, with score tracking shared with every student.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-num">E</div>
+        <div class="why-icon"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><rect x="5" y="6" width="20" height="18" rx="2" stroke="#16233F" stroke-width="1.6"/><path d="M5 12H25" stroke="#16233F" stroke-width="1.6"/><circle cx="10" cy="9" r="1" fill="#F2A93B"/><circle cx="14" cy="9" r="1" fill="#F2A93B"/></svg></div>
+        <h3>Small batch sizes</h3>
+        <p>Capped batches so every student gets individual attention, not just lecture time.</p>
+      </div>
+      <div class="why-card reveal">
+        <div class="why-num">F</div>
+        <div class="why-icon"><svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M6 5H24V25H6z" stroke="#16233F" stroke-width="1.6"/><path d="M10 11H20M10 15H20M10 19H16" stroke="#F2A93B" stroke-width="1.6" stroke-linecap="round"/></svg></div>
+        <h3>Digital study material</h3>
+        <p>Notes, practice sets, and past papers shared digitally — organized by chapter, always accessible.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="courses" id="courses">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <span class="sec-tag" style="color:#F2A93B;">§2 — Courses</span>
+        <h2>Two batches. One clear track to the boards.</h2>
+      </div>
+      <p>Both batches follow the same rhythm — weekday classes, weekend tests, monthly parent updates.</p>
+    </div>
+    <div class="course-list">
+      <div class="course-row reveal">
+        <div class="course-code">CS-XI</div>
+        <div class="course-title">Class XI Computer Science<span>Python fundamentals, data structures, computer systems, boolean logic</span></div>
+        <div class="course-meta"><b>Timing</b>Mon–Fri, 7:00–8:30 AM</div>
+        <div class="course-meta"><b>Mode</b>Offline, in-campus</div>
+        <a href="#contact" class="btn btn-ghost">Enroll</a>
+      </div>
+      <div class="course-row reveal">
+        <div class="course-code">CS-XII</div>
+        <div class="course-title">Class XII Computer Science<span>SQL &amp; databases, networking, Python file handling, exception handling, board practicals</span></div>
+        <div class="course-meta"><b>Timing</b>Mon–Fri, 8:30–10:00 AM</div>
+        <div class="course-meta"><b>Mode</b>Offline, in-campus</div>
+        <a href="#contact" class="btn btn-ghost">Enroll</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="results" id="results">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <span class="sec-tag">§3 — Results</span>
+        <h2>What the last batch actually scored.</h2>
+      </div>
+      <p>Average board score before vs. after a full year at Vector Classes.</p>
+    </div>
+    <div class="results-grid">
+      <div class="chart reveal">
+        <div class="chart-title">Average CS score, before → after</div>
+        <div class="bars">
+          <div class="bar-col"><div class="bar-val">58%</div><div class="bar" style="--h:35%; animation-delay:.1s;"></div><div class="bar-label">Before</div></div>
+          <div class="bar-col"><div class="bar-val">89%</div><div class="bar" style="--h:82%; animation-delay:.3s;"></div><div class="bar-label">After</div></div>
+          <div class="bar-col"><div class="bar-val">61%</div><div class="bar" style="--h:38%; animation-delay:.5s;"></div><div class="bar-label">Before</div></div>
+          <div class="bar-col"><div class="bar-val">94%</div><div class="bar" style="--h:88%; animation-delay:.7s;"></div><div class="bar-label">After</div></div>
+        </div>
+        <p class="note">Sample data — replace with your batch's actual results.</p>
+      </div>
+      <div>
+        <div class="testimonials">
+          <div class="t-card reveal">
+            <p class="t-quote">The weekly tests were what actually got me exam-ready — not just the classes.</p>
+            <div class="t-who">— Class XII student, 2025 batch</div>
+          </div>
+          <div class="t-card reveal">
+            <p class="t-quote">Small batches meant I could actually ask questions instead of falling behind.</p>
+            <div class="t-who">— Class XI student, 2025 batch</div>
+          </div>
+          <div class="t-card reveal">
+            <p class="t-quote">Clear monthly updates — I always knew exactly where my child stood.</p>
+            <div class="t-who">— Parent, 2025 batch</div>
+          </div>
+        </div>
+        <p class="note">Sample testimonials — replace with real student and parent feedback.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="contact" id="contact">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div>
+        <span class="sec-tag">§4 — Enroll</span>
+        <h2>Book a free demo class.</h2>
+      </div>
+      <p>No commitment — sit in on a real class before you decide.</p>
+    </div>
+    <div class="contact-grid reveal">
+      <div class="contact-info">
+        <h3>Vector Classes</h3>
+        <p>Computer Science coaching for Class XI &amp; XII students, focused on board results and real conceptual clarity.</p>
+        <div class="contact-line"><div><b>Phone</b>+91 00000 00000</div></div>
+        <div class="contact-line"><div><b>Email</b>hello@vectorclasses.example</div></div>
+        <div class="contact-line"><div><b>Address</b>Your institute address, Dehradun, Uttarakhand</div></div>
+        <div class="contact-line"><div><b>Hours</b>Mon–Sat, 7:00 AM – 6:00 PM</div></div>
+      </div>
+      <form class="contact-form" onsubmit="event.preventDefault(); this.querySelector('.form-submit').textContent='Request sent'; this.querySelector('.form-submit').style.pointerEvents='none';">
+        <div class="field"><label>Student name</label><input type="text" placeholder="Full name" required></div>
+        <div class="row2">
+          <div class="field"><label>Class</label>
+            <select required>
+              <option value="">Select</option>
+              <option>Class XI</option>
+              <option>Class XII</option>
+            </select>
+          </div>
+          <div class="field"><label>Phone number</label><input type="tel" placeholder="10-digit number" required></div>
+        </div>
+        <div class="field"><label>Preferred batch timing</label>
+          <select>
+            <option>Morning (7:00–8:30 AM)</option>
+            <option>Morning (8:30–10:00 AM)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary form-submit" type="submit">Request a Free Demo Class</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-row">
+    <div>© 2026 Vector Classes. All rights reserved.</div>
+    <div class="foot-links">
+      <a href="#why">Why Us</a>
+      <a href="#courses">Courses</a>
+      <a href="#results">Results</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:0.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+
+</body>
+</html>

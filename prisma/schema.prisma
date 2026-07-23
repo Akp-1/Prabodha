@@ -1,0 +1,319 @@
+// Prabodha — Database schema
+// This is the single source of truth for the database. Every table from
+// the original Modules 1-10 design lives here now, translated from raw SQL
+// into Prisma models. Run `npx prisma migrate dev` after changing this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  teacher
+  student
+  parent
+}
+
+enum MaterialType {
+  pdf
+  image
+  note
+  link
+}
+
+enum AttendanceStatus {
+  present
+  absent
+}
+
+enum HomeworkCompletionStatus {
+  pending
+  completed
+}
+
+// ---------------------------------------------------------------------------
+// Module 1 — Authentication & Institutes
+// ---------------------------------------------------------------------------
+
+model Institute {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  logoUrl      String?  @map("logo_url")
+  academicYear String?  @map("academic_year")
+  workingDays  String[] @default(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) @map("working_days")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  users               User[]
+  batches             Batch[]
+  subjects            Subject[]
+  batchSubjectTeacher BatchSubjectTeacher[]
+  timetableSlots      TimetableSlot[]
+  attendanceSessions  AttendanceSession[]
+  studyMaterials      StudyMaterial[]
+  homework            Homework[]
+  parentStudentLinks  ParentStudentLink[]
+
+  @@map("institutes")
+}
+
+model User {
+  id               String    @id @default(uuid())
+  instituteId      String    @map("institute_id")
+  role             Role
+  name             String
+  email            String
+  phone            String?
+  passwordHash     String    @map("password_hash")
+  isActive         Boolean   @default(true) @map("is_active")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  // teacher-only profile fields
+  qualification    String?
+  experienceYears  Int?      @map("experience_years")
+
+  // student-only profile fields
+  dateOfBirth      DateTime? @map("date_of_birth") @db.Date
+  address          String?
+  parentName       String?   @map("parent_name")
+  enrollmentDate   DateTime? @default(now()) @map("enrollment_date") @db.Date
+  batchId          String?   @map("batch_id")
+
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  batch     Batch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  passwordResetTokens     PasswordResetToken[]
+  teachingAssignments     BatchSubjectTeacher[] @relation("TeacherAssignments")
+  materialsUploaded       StudyMaterial[]       @relation("MaterialUploader")
+  homeworkAssigned        Homework[]            @relation("HomeworkAssigner")
+  homeworkStatuses        HomeworkStatus[]      @relation("StudentHomeworkStatus")
+  attendanceMarked        AttendanceSession[]   @relation("AttendanceMarker")
+  attendanceRecords       AttendanceRecord[]    @relation("StudentAttendance")
+  parentLinksAsParent     ParentStudentLink[]   @relation("ParentLink")
+  parentLinksAsStudent    ParentStudentLink[]   @relation("StudentLink")
+
+  @@unique([instituteId, email])
+  @@index([instituteId])
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Modules 3-6 — Teacher, Student, Batch & Subject Management
+// ---------------------------------------------------------------------------
+
+model Batch {
+  id          String   @id @default(uuid())
+  instituteId String   @map("institute_id")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  institute Institute             @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  students  User[]
+  bst       BatchSubjectTeacher[]
+  materials StudyMaterial[]
+  homework  Homework[]
+
+  @@unique([instituteId, name])
+  @@map("batches")
+}
+
+model Subject {
+  id          String   @id @default(uuid())
+  instituteId String   @map("institute_id")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  institute Institute             @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  bst       BatchSubjectTeacher[]
+  materials StudyMaterial[]
+  homework  Homework[]
+
+  @@unique([instituteId, name])
+  @@map("subjects")
+}
+
+/// One row = "this teacher teaches this subject to this batch."
+/// Powers Module 6 (subject assignment), Module 3 (teacher's assignments),
+/// and Module 5 (batch's assigned teachers) all from one table.
+model BatchSubjectTeacher {
+  id          String   @id @default(uuid())
+  instituteId String   @map("institute_id")
+  batchId     String   @map("batch_id")
+  subjectId   String   @map("subject_id")
+  teacherId   String   @map("teacher_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  institute Institute       @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  batch     Batch           @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subject   Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher   User            @relation("TeacherAssignments", fields: [teacherId], references: [id], onDelete: Cascade)
+  timetable TimetableSlot[]
+
+  @@unique([batchId, subjectId])
+  @@index([instituteId])
+  @@index([teacherId])
+  @@map("batch_subject_teacher")
+}
+
+model ParentStudentLink {
+  id          String @id @default(uuid())
+  instituteId String @map("institute_id")
+  parentId    String @map("parent_id")
+  studentId   String @map("student_id")
+
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  parent    User      @relation("ParentLink", fields: [parentId], references: [id], onDelete: Cascade)
+  student   User      @relation("StudentLink", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@map("parent_student_links")
+}
+
+// ---------------------------------------------------------------------------
+// Module 7 — Timetable
+// ---------------------------------------------------------------------------
+
+model TimetableSlot {
+  id                    String   @id @default(uuid())
+  instituteId           String   @map("institute_id")
+  batchSubjectTeacherId String   @map("batch_subject_teacher_id")
+  dayOfWeek             Int      @map("day_of_week") // 0 = Sunday .. 6 = Saturday
+  startTime             DateTime @map("start_time") @db.Time
+  endTime               DateTime @map("end_time") @db.Time
+  classroom             String?
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  institute Institute           @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  bst       BatchSubjectTeacher @relation(fields: [batchSubjectTeacherId], references: [id], onDelete: Cascade)
+
+  @@index([instituteId])
+  @@index([batchSubjectTeacherId])
+  @@index([dayOfWeek])
+  @@map("timetable_slots")
+}
+
+// ---------------------------------------------------------------------------
+// Module 8 — Attendance
+// ---------------------------------------------------------------------------
+
+model AttendanceSession {
+  id                    String   @id @default(uuid())
+  instituteId           String   @map("institute_id")
+  batchSubjectTeacherId String   @map("batch_subject_teacher_id")
+  sessionDate           DateTime @map("session_date") @db.Date
+  markedBy              String   @map("marked_by")
+  submittedAt           DateTime @default(now()) @map("submitted_at")
+
+  institute Institute          @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  marker    User               @relation("AttendanceMarker", fields: [markedBy], references: [id])
+  records   AttendanceRecord[]
+
+  @@unique([batchSubjectTeacherId, sessionDate])
+  @@index([instituteId])
+  @@index([sessionDate])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id        String            @id @default(uuid())
+  sessionId String            @map("session_id")
+  studentId String            @map("student_id")
+  status    AttendanceStatus
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User              @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@map("attendance_records")
+}
+
+// ---------------------------------------------------------------------------
+// Modules 9-10 — Study Material & Homework
+// ---------------------------------------------------------------------------
+
+model StudyMaterial {
+  id            String       @id @default(uuid())
+  instituteId   String       @map("institute_id")
+  batchId       String       @map("batch_id")
+  subjectId     String       @map("subject_id")
+  uploadedBy    String       @map("uploaded_by")
+  title         String
+  description   String?
+  materialType  MaterialType @map("material_type")
+  fileUrl       String?      @map("file_url")
+  filePath      String?      @map("file_path")
+  externalLink  String?      @map("external_link")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  batch     Batch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  uploader  User      @relation("MaterialUploader", fields: [uploadedBy], references: [id])
+
+  @@index([instituteId])
+  @@index([batchId])
+  @@map("study_materials")
+}
+
+model Homework {
+  id          String   @id @default(uuid())
+  instituteId String   @map("institute_id")
+  batchId     String   @map("batch_id")
+  subjectId   String   @map("subject_id")
+  assignedBy  String   @map("assigned_by")
+  title       String
+  description String?
+  dueDate     DateTime @map("due_date") @db.Date
+  fileUrl     String?  @map("file_url")
+  filePath    String?  @map("file_path")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  institute Institute        @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  batch     Batch            @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subject   Subject          @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  assigner  User             @relation("HomeworkAssigner", fields: [assignedBy], references: [id])
+  statuses  HomeworkStatus[]
+
+  @@index([instituteId])
+  @@index([batchId])
+  @@map("homework")
+}
+
+/// Per-student completion tracking, created for every student the moment
+/// homework is assigned. This is what a parent's "homework status" view reads.
+model HomeworkStatus {
+  id         String                    @id @default(uuid())
+  homeworkId String                    @map("homework_id")
+  studentId  String                    @map("student_id")
+  status     HomeworkCompletionStatus  @default(pending)
+  updatedAt  DateTime                  @default(now()) @map("updated_at")
+
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  User     @relation("StudentHomeworkStatus", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, studentId])
+  @@index([homeworkId])
+  @@index([studentId])
+  @@map("homework_status")
+}
