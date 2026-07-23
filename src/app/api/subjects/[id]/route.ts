@@ -5,7 +5,7 @@ import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, { params }) => {
   const user = requireAuth(request);
   const id = params.id;
 
@@ -22,7 +22,7 @@ const patchSchema = z.object({
   name: z.string().min(1, 'Subject name cannot be empty').optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
   const id = params.id;
@@ -40,7 +40,7 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }: { param
   return NextResponse.json(subject);
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
   const id = params.id;

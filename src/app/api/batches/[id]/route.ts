@@ -5,7 +5,7 @@ import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = apiHandler(async (request: NextRequest, { params }) => {
   const user = requireAuth(request);
   const id = params.id;
 
@@ -16,7 +16,7 @@ export const GET = apiHandler(async (request: NextRequest, { params }: { params:
         where: { isActive: true },
         select: { id: true, name: true, email: true, phone: true }
       },
-      batchSubjectTeachers: {
+      bst: {
         include: {
           subject: true,
           teacher: { select: { id: true, name: true } }
@@ -34,7 +34,7 @@ const patchSchema = z.object({
   name: z.string().min(1, 'Batch name cannot be empty').optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
   const id = params.id;
@@ -52,7 +52,7 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }: { param
   return NextResponse.json(batch);
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, { params }: { params: { id: string } }) => {
+export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
   const id = params.id;
