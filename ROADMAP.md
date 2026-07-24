@@ -44,23 +44,23 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Subjects API:** CRUD operations.
 
 ### Phase 2: Core Entity APIs & UI Wiring (🟡 IN PROGRESS)
-- [ ] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
-- [ ] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
+- [x] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
+- [x] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
 - [ ] **Parent-Student Linking:** API to link parent accounts to student profiles.
 - [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
   - [ ] `DirectoryPage` (Teachers/Students lists)
   - [ ] `AdminResourcePage` (Batches/Subjects management)
 
-### Phase 3: Academic Operations (🔴 TODO)
-- [ ] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
+### Phase 3: Academic Operations (🟡 IN PROGRESS)
+- [x] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
 - [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them.
 - [ ] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
 - [ ] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class.
 
-### Phase 4: Content & Assessments (🔴 TODO)
+### Phase 4: Content & Assessments (🟡 IN PROGRESS)
 - [ ] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
 - [ ] **Study Materials UI:** A drive-like interface for organizing class notes.
-- [ ] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
+- [x] **Homework API:** Endpoints to assign homework (assignments) and track per student.
 - [ ] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks).
 - [ ] **Marks/Grades:** Build the schema, API, and UI for recording exam/test scores.
 
