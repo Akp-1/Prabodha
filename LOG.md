@@ -72,6 +72,68 @@
 - Timetable, Attendance, Materials, Homework APIs
 
 ---
+---
+
+## Session 3 — 2026-07-23 (Night)
+
+**Focus:** Teachers API (CRUD, soft-delete)
+
+### What was done
+- Added `src/app/api/teachers/route.ts` — `GET` (list, active-only by default,
+  `?includeInactive=true` opt-in), `POST` (admin-only, creates `User` with `role: 'teacher'`)
+- Added `src/app/api/teachers/[id]/route.ts` — `GET`, `PATCH` (admin-only), `DELETE` (admin-only)
+- Followed the existing `subjects`/`batches` route conventions exactly:
+  `apiHandler` + `requireAuth`/`requireRole` from `lib/rbac.ts`, Zod schemas, institute-scoped queries
+
+### Key decisions
+- Teachers are `User` rows filtered by `role: 'teacher'` — no new Prisma model
+- `DELETE` follows the "soft delete for people" decision from Session 2: flips `isActive`
+  to `false` instead of removing the row (teachers are referenced by attendance, homework,
+  study material, batch/subject assignments)
+- All responses use an explicit `select` to exclude `passwordHash`
+- Email/password change left out of scope for this task
+
+### Verification
+- Not yet run against local DB — pending `npm run dev` + manual endpoint test (see `task.md`)
+
+### What's pending
+- Students CRUD API (same pattern, teacher-scoped access per legacy behavior)
+- Manual/automated test pass on Teachers API
+
+---
+
+---
+
+## Session 4 — 2026-07-24
+
+**Focus:** Students API (CRUD, soft-delete, teacher-scoped access)
+
+### What was done
+- Added `src/app/api/students/route.ts` — `GET` (admin: all students, optional `?batchId=`;
+  teacher: scoped to batches they teach via `BatchSubjectTeacher`), `POST` (admin-only)
+- Added `src/app/api/students/[id]/route.ts` — `GET` (admin: any; teacher: only if they teach
+  the student's batch, else 403), `PATCH` (admin-only), `DELETE` (admin-only, soft-delete)
+
+### Key decisions
+- Students are `User` rows filtered by `role: 'student'` — no new Prisma model
+- Implemented the Session 2 "Teacher access: Replicate legacy teacher-scoped student access"
+  item: teacher's student list/detail access is derived from `BatchSubjectTeacher` assignments,
+  not a separate permissions table
+- A teacher requesting a `batchId` they don't teach gets an empty list (not an error) on the
+  list endpoint, but a 403 on the detail endpoint — list is a filter, detail is an access check
+- `DELETE` soft-deletes (`isActive: false`) per the existing "soft delete for people" decision
+- All responses use an explicit `select` to exclude `passwordHash`
+
+### Verification
+- Manually tested via Postman against local SQLite DB: admin create/list, teacher-scoped list and detail fetch
+  both confirmed correct (200 when assigned via `BatchSubjectTeacher`, empty list / 403 when the assignment
+  row was removed in Prisma Studio)
+- 
+### What's pending
+- Parent-side access to linked students (via `ParentStudentLink`)
+- Manual/automated test pass on Students API, including the teacher-scoping edge cases
+
+---
 
 <!-- Future sessions: copy the template below -->
 <!--
