@@ -183,6 +183,44 @@
 
 ---
 
+---
+
+## Session 6 — 2026-07-24
+
+**Focus:** Timetable API (TimetableSlot CRUD, conflict detection)
+
+### What was done
+- Added `src/app/api/timetable/route.ts` — `GET` (admin: all slots, filterable by
+  batchId/dayOfWeek; teacher: own schedule only), `POST` (admin-only, validates the
+  assignment + rejects overlapping teacher/batch/classroom bookings)
+- Added `src/app/api/timetable/[id]/route.ts` — `GET` (admin: any; teacher: own only,
+  else 403), `PATCH` (admin-only, day/time/classroom only, re-checks conflicts),
+  `DELETE` (admin-only, hard delete)
+
+### Key decisions
+- `startTime`/`endTime` accepted/returned as `"HH:MM"` strings over the API; stored
+  internally as `DateTime` pinned to a fixed reference date (`1970-01-01`), since SQLite
+  has no time-only column type
+- Conflict detection (teacher/batch/classroom double-booking on the same day) is done in
+  application code by fetching same-day slots and checking overlap — no native time-range
+  query available in SQLite at this scale
+- `batchSubjectTeacherId` is not editable via `PATCH`, same reasoning as Assignments'
+  batch/subject fields — it's the row's identity, not an editable attribute
+- `DELETE` is a hard delete — structural, not a person, same as Assignments
+- Correctly used `user.sub` (not `user.id`) for teacher-scoping from the start, per the
+  Session 5 bug fix
+
+### Verification
+- Manually tested via Postman: create, teacher-double-booking conflict (409), boundary
+  case (back-to-back slots with touching but non-overlapping times succeed), admin/teacher
+  list scoping, detail fetch, classroom update, conflict-on-update (409), delete, and
+  re-fetch-after-delete (404) — all confirmed correct
+
+### What's pending
+- Attendance API (next natural layer — attendance sessions reference timetable/BST)
+- Manual test pass on Timetable API, including all three conflict types
+
+---
 
 <!-- Future sessions: copy the template below -->
 <!--
