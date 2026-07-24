@@ -34,7 +34,7 @@ export const GET = apiHandler(async (request: NextRequest) => {
     let batchFilter: { in: string[] } | string | undefined = batchId;
     if (user.role === 'teacher') {
         const assignments = await prisma.batchSubjectTeacher.findMany({
-            where: { teacherId: user.id, instituteId: user.instituteId },
+            where: { teacherId: user.sub, instituteId: user.instituteId },
             select: { batchId: true },
             distinct: ['batchId'],
         });

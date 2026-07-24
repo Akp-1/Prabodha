@@ -45,7 +45,7 @@ export const GET = apiHandler(async (request: NextRequest, { params }) => {
     if (!student) throw new ApiError(404, 'Student not found');
 
     if (user.role === 'teacher') {
-        const allowed = await teacherCanAccessBatch(user.id, user.instituteId, student.batchId);
+        const allowed = await teacherCanAccessBatch(user.sub, user.instituteId, student.batchId);
         if (!allowed) throw new ApiError(403, 'You do not have permission to do this');
     } else {
         requireRole(user, 'admin');

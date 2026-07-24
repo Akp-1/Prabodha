@@ -134,6 +134,55 @@
 - Manual/automated test pass on Students API, including the teacher-scoping edge cases
 
 ---
+---
+
+## Session 5 — 2026-07-24
+
+**Focus:** Assignments API (BatchSubjectTeacher CRUD)
+
+### What was done
+- Added `src/app/api/assignments/route.ts` — `GET` (admin: all, filterable by
+  batchId/subjectId/teacherId; teacher: own assignments only), `POST` (admin-only,
+  validates batch/subject/teacher belong to institute + teacher is active)
+- Added `src/app/api/assignments/[id]/route.ts` — `GET` (admin: any; teacher: own
+  only, else 403), `PATCH` (admin-only, reassign teacher), `DELETE` (admin-only, hard delete)
+- This replaces the manual Prisma Studio workaround used in Session 4's testing to
+  link a teacher to a batch/subject for verifying student-scoping
+
+### Key decisions
+- `DELETE` is a **hard** delete (not soft), following the Session 2 decision:
+  "hard delete for structure (batches/subjects)" — `BatchSubjectTeacher` is a
+  structural link, not a person
+- Relied on the existing `[batchId, subjectId]` unique constraint + `apiHandler`'s
+  existing P2002 → 409 handling for duplicate-assignment conflicts, rather than a
+  manual pre-check — avoids a race condition between check and create
+- `PATCH` only allows reassigning `teacherId` — batch/subject together are the
+  row's identity, so changing either is treated as delete + re-create
+- Teachers can list/fetch only their own assignments; the `teacherId` query filter
+  is ignored for teacher callers so they can't probe other teachers' assignments
+
+### Verification
+- Manually tested via Postman: create, duplicate-conflict (409), admin/teacher list scoping,
+  detail fetch, delete, and re-fetch-after-delete (404) — all confirmed correct
+
+### Bug found & fixed
+- `requireAuth` returns a `TokenPayload` with the current user's id on `.sub`, not `.id`.
+  Four places across `students/route.ts`, `students/[id]/route.ts`, `assignments/route.ts`,
+  and `assignments/[id]/route.ts` used `user.id` (always `undefined`) instead of `user.sub`.
+  For Prisma `where` filters this failed silently — an `undefined` field is treated as "no
+  filter," so teacher-scoped student/assignment lists were actually returning unscoped
+  results. For direct equality checks (`assignment.teacherId !== user.id`) it failed loudly
+  as a permanent 403. Caught while testing the Assignments detail route, then traced back
+  and fixed in all four call sites; re-verified the Students teacher-scoping tests afterward
+  since the earlier "pass" was a false positive.
+
+
+### What's pending
+- Timetable API (builds directly on `BatchSubjectTeacher` via `TimetableSlot`)
+- Manual test pass on Assignments API
+
+---
+
 
 <!-- Future sessions: copy the template below -->
 <!--
