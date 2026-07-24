@@ -221,6 +221,100 @@
 - Manual test pass on Timetable API, including all three conflict types
 
 ---
+---
+
+## Session 7 — 2026-07-24
+
+**Focus:** Attendance API (AttendanceSession + AttendanceRecord CRUD)
+
+### What was done
+- Added `src/app/api/attendance/route.ts` — `GET` (admin: all sessions, filterable by
+  batchId/subjectId/date/date-range; teacher: own assignment's sessions only, with a
+  present/absent summary per session), `POST` (admin or the assigned teacher; creates a
+  session + all per-student records in one call, validates roster membership)
+- Added `src/app/api/attendance/[id]/route.ts` — `GET` (full detail with per-student
+  records; admin: any, teacher: own only), `PATCH` (correct existing records' status,
+  admin or assigned teacher), `DELETE` (hard delete, cascades to records)
+
+### Key decisions
+- Unlike Assignments/Timetable, **both admin and the assigned teacher** can
+  create/view/correct/delete — attendance is something teachers submit and fix
+  themselves day-to-day, not an admin-only structural resource
+- Relied on the existing `[batchSubjectTeacherId, sessionDate]` unique constraint +
+  `apiHandler`'s P2002 → 409 handling for duplicate same-day submissions, same approach
+  as Assignments' duplicate-pair handling
+- `PATCH` only corrects existing records — can't add a student who wasn't in the
+  original roster, since that implies the original session itself was wrong
+  (re-submit a new session instead)
+- Hard delete, cascading via schema — a session is an event record, not a person, so
+  it doesn't follow the Teachers/Students soft-delete pattern
+- Teacher list scoping uses `user.sub` correctly from the start, per the Session 5 fix
+
+### Verification
+- Not yet run against local DB — pending manual test (see `task.md`)
+
+### What's pending
+- Study Material + Homework APIs (next per ROADMAP)
+- Manual test pass on Attendance API
+
+---
+
+---
+
+## Session 8 — 2026-07-24
+
+**Focus:** Study Material + Homework APIs
+
+### What was done
+- Added `src/app/api/materials/route.ts` + `[id]/route.ts` — full CRUD. List/detail read
+  access scoped by the teacher's **current** `BatchSubjectTeacher` assignments; write
+  access (edit/delete) scoped by **ownership** (`uploadedBy`) instead, so reassignment
+  doesn't lock a teacher out of content they created
+- Added `src/app/api/homework/route.ts` + `[id]/route.ts` — same access pattern
+  (`assignedBy` for writes). `POST` auto-creates a `HomeworkStatus` row per currently
+  active student in the batch. `PATCH` supports bulk status corrections via a `statuses`
+  array, reusing the correction pattern from Attendance's `PATCH`
+
+### Key decisions
+- **Read vs. write scoping split**: this is new compared to earlier modules. Assignments/
+  Timetable/Attendance tie both read and write to the *current* teacher assignment. Here,
+  read follows current assignment (what should a teacher currently see for their classes)
+  but write follows original ownership (`uploadedBy`/`assignedBy`) — a teacher shouldn't
+  lose the ability to fix a typo in homework they created just because they got moved to
+  a different batch next term
+- Homework roster is a **snapshot at creation time**, not a live query — matches the
+  schema's own doc comment on `HomeworkStatus`
+- No new file-upload plumbing — both APIs only store `fileUrl`/`filePath`/`externalLink`
+  references, assuming upload happens elsewhere
+- `materialType: 'link'` requires `externalLink`; other types require `fileUrl` or
+  `filePath` — enforced via a Zod `.refine()`
+
+### Verification
+- Manually tested via Postman after a full DB reset: create, duplicate-conflict (409),
+  list (admin + teacher scoping), detail fetch, status correction via PATCH, delete —
+  all confirmed correct once the bug below was fixed
+
+### Bug found & fixed
+- `AttendanceSession` has **no Prisma relation field to `BatchSubjectTeacher`** in the
+  schema — only the raw `batchSubjectTeacherId` column (unlike `TimetableSlot`, which
+  does declare a `bst` relation). The original code assumed a `bst` relation existed
+  (copied from the Timetable pattern) and used it in both `include` and `where`, which
+  Prisma rejected at query time — a 500 with no useful message surfaced to the client.
+  Fixed by resolving `BatchSubjectTeacher` rows manually (a batched lookup for list, a
+  single lookup for detail) and attaching them to the response by hand, instead of
+  relying on a relation that isn't declared in `schema.prisma`.
+### What's pending
+- Marks/exams API (last content module per ROADMAP before frontend wiring)
+- Manual test pass on Materials + Homework
+
+---
+
+### Verification
+- Manually tested via Postman: material create (both valid and validation-failure
+  cases), teacher-scoped list, delete-by-uploader; homework create (roster snapshot
+  confirmed via seeded pending statuses), list summary, status correction via PATCH,
+  rejection of a status update for a student not on the roster, delete — all confirmed correct
+
 
 <!-- Future sessions: copy the template below -->
 <!--
