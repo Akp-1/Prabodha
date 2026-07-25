@@ -222,6 +222,35 @@
 
 ---
 
+## Session 7 — 2026-07-24
+
+**Focus:** Wire Dashboard UI to Real API Endpoints
+
+### What was done
+- Created `src/lib/api-client.ts` — a client-side `fetch()` wrapper that auto-attaches the JWT `Authorization: Bearer` header from localStorage. All dashboard pages import this instead of calling `fetch()` directly.
+- **Main Dashboard** (`dashboard/page.tsx`): Replaced hardcoded `MOCK_STATS` with real `fetch()` calls to `/api/students`, `/api/teachers`, and `/api/batches`. The "Getting Started" checklist now auto-checks based on whether real data exists in the database.
+- **DirectoryPage** (`components/dashboard/DirectoryPage.tsx`): Replaced `useInstitutionStore` with `apiFetch()` calls to `/api/teachers` and `/api/students`. The create form now `POST`s to the real API with a temporary default password (`Welcome@123`).
+- **AdminResourcePage** (`components/dashboard/AdminResourcePage.tsx`): Replaced localStorage-backed batches/subjects with `apiFetch()` calls to `/api/batches` and `/api/subjects`. Materials, homework, and assessments remain on `InstitutionStore` since those APIs don't exist yet.
+- **Timetable Page** (`dashboard/timetable/page.tsx`): Replaced `InstitutionStore.sessions` with `apiFetch()` calls to `/api/timetable`. The create form was redesigned: instead of three separate dropdowns (batch, subject, faculty), it now uses a single assignment dropdown populated from `/api/assignments` (e.g., "Physics → Class 11 Science (Dr. Meera Iyer)"), matching the API's `batchSubjectTeacherId` requirement.
+- Updated `ROADMAP.md` with two new tasks: "Password Input on Create Forms" and "Login Page".
+
+### Key decisions
+- `InstitutionStore` is **not yet removable** from `(dashboard)/layout.tsx` — it's still required by Attendance, Materials, Homework, Marks, and Settings pages which have no API.
+- Temporary password (`Welcome@123`) used for teacher/student creation until a proper password input is added (tracked in ROADMAP).
+- Timetable form consolidated from 3 dropdowns to 1 assignment dropdown — correct per schema design.
+- All API-backed pages show a "Loading…" state while data is being fetched.
+
+### Verification
+- `npm run build` → ✅ passed (15 pages, 21 API routes, zero TypeScript errors)
+- One lint warning in `AdminResourcePage.tsx` (unnecessary dependency in `useMemo`) — non-blocking
+
+### What's pending
+- Build a proper Login Page that stores the JWT token
+- Add password field to teacher/student create forms
+- Wire remaining pages (Attendance, Materials, Homework, Marks, Settings) once their APIs are built
+
+---
+
 <!-- Future sessions: copy the template below -->
 <!--
 ## Session N — YYYY-MM-DD

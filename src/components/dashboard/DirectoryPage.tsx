@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, UserRound, X } from 'lucide-react';
-import { createRecordId, useInstitutionStore } from './InstitutionStore';
+import { apiFetch } from '@/lib/api-client';
 
 export type DirectoryRecord = {
   id: string;
@@ -20,17 +20,50 @@ type DirectoryPageProps = {
   detailPlaceholder: string;
 };
 
+type ApiUser = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  isActive: boolean;
+  qualification?: string | null;
+  batchId?: string | null;
+  parentName?: string | null;
+};
+
 export function DirectoryPage({ kind, description, addLabel, detailLabel, detailPlaceholder }: DirectoryPageProps) {
-  const { data, update } = useInstitutionStore();
+  const [records, setRecords] = useState<DirectoryRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [detail, setDetail] = useState('');
 
-  const records: DirectoryRecord[] = kind === 'Learners'
-    ? data.learners.map((learner) => ({ id: learner.id, name: learner.name, email: learner.email, detail: learner.section, status: learner.status }))
-    : data.faculty.map((member) => ({ id: member.id, name: member.name, email: member.email, detail: member.subject, status: member.status }));
+  const endpoint = kind === 'Faculty' ? '/api/teachers' : '/api/students';
+
+  const mapToRecord = (user: ApiUser): DirectoryRecord => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    detail: kind === 'Faculty' ? (user.qualification || 'No qualification') : (user.parentName || 'No parent info'),
+    status: user.isActive ? 'Active' : 'Pending',
+  });
+
+  useEffect(() => {
+    async function fetchRecords() {
+      try {
+        const users = await apiFetch<ApiUser[]>(endpoint);
+        setRecords(users.map(mapToRecord));
+      } catch {
+        // API not available — leave empty
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRecords();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint]);
 
   const filteredRecords = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -45,21 +78,39 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
     setShowForm(false);
   };
 
-  const addRecord = (event: React.FormEvent<HTMLFormElement>) => {
+  const addRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (kind === 'Learners') {
-      update((current) => ({
-        ...current,
-        learners: [{ id: createRecordId('learner'), name: name.trim(), email: email.trim(), section: detail.trim() || 'Unassigned', parentName: 'Not added', status: 'Pending' }, ...current.learners],
-      }));
-    } else {
-      update((current) => ({
-        ...current,
-        faculty: [{ id: createRecordId('faculty'), name: name.trim(), email: email.trim(), subject: detail.trim() || 'Unassigned', status: 'Pending' }, ...current.faculty],
-      }));
+    try {
+      const body: Record<string, string | number | undefined> = {
+        name: name.trim(),
+        email: email.trim(),
+        password: 'Welcome@123', // Temporary default — proper password input is a ROADMAP task
+      };
+      if (kind === 'Faculty') {
+        body.qualification = detail.trim() || undefined;
+      } else {
+        body.parentName = detail.trim() || undefined;
+      }
+      const created = await apiFetch<ApiUser>(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      setRecords((current) => [mapToRecord(created), ...current]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create record');
     }
     resetForm();
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-[1040px]">
+        <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Institution directory</div>
+        <h1 className="font-display font-semibold text-[32px] tracking-tight mb-6">{kind}</h1>
+        <div className="text-sm text-ink-soft">Loading…</div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1040px]">
