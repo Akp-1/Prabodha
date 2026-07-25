@@ -315,6 +315,56 @@
   confirmed via seeded pending statuses), list summary, status correction via PATCH,
   rejection of a status update for a student not on the roster, delete — all confirmed correct
 
+---
+
+## Session 9 — 2026-07-24
+
+**Focus:** Marks/Exams schema + API, first code-quality refactor pass
+
+### What was done
+- **Schema**: added `Exam` and `Mark` models (Module 11 — this didn't exist before
+  this session, unlike every prior module which had schema already in place). Added
+  back-relations to `Institute`, `User`, `Batch`, `Subject`. Applied via
+  `npx prisma db push`.
+- **Refactor**: extracted `src/lib/content-scope.ts` — shared teacher
+  scoping/ownership helpers (`teacherContentScope`, `requireCurrentlyAssigned`,
+  `canReadContent`, `canWriteContent`), replacing the hand-rolled, slightly
+  inconsistent versions duplicated across Materials and Homework in Session 8.
+- Added `src/app/api/exams/route.ts` + `[id]/route.ts` — full CRUD, using the new
+  shared helper. `GET` list includes a computed `{ studentsGraded, average }`
+  summary. `PATCH`'s `marks` field is an upsert (create-or-correct), differing
+  deliberately from Attendance/Homework's correction-only pattern since there's no
+  pre-created Mark roster to correct against.
+
+### Key decisions
+- **This module needed new schema** — flagged explicitly rather than silently
+  building on top of something that didn't exist. Always check the schema before
+  assuming an API-only task.
+- **Code quality**: chose to extract `content-scope.ts` now, while adding the third
+  consumer of this pattern, rather than waiting longer. Deliberately did **not**
+  retrofit Materials/Homework in the same session — kept the diff focused on Marks,
+  logged the retrofit as a separate follow-up instead of scope-creeping this session
+- Marks bounds (`0 ≤ marksObtained ≤ maxMarks`) enforced in the API layer; SQLite has
+  no CHECK constraint support via Prisma
+- Lowering an exam's `maxMarks` below an already-recorded score is rejected, not
+  silently truncated — protects existing grades from an accidental edit
+
+### Verification
+- Manually tested via Postman: exam create, mark entry, over-max-marks rejection (400),
+  mark correction via upsert, maxMarks-lowering-below-existing-score rejection (400),
+  detail fetch, summary/average calculation, delete, re-fetch-after-delete (404) —
+  all confirmed correct
+- 
+### What's pending
+- Retrofit Materials (`src/app/api/materials/`) and Homework
+  (`src/app/api/homework/`) to use `src/lib/content-scope.ts` instead of their
+  original hand-rolled logic — pure refactor, no behavior change expected
+- Manual test pass on Exams/Marks API
+- This was the last content module per ROADMAP Phase 4 — Phase 5 (role-specific
+  dashboards) and frontend wiring are the natural next pieces
+
+---
+
 
 <!-- Future sessions: copy the template below -->
 <!--

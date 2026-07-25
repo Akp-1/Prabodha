@@ -44,6 +44,7 @@ model Institute {
   studyMaterials      StudyMaterial[]
   homework            Homework[]
   parentStudentLinks  ParentStudentLink[]
+  exams               Exam[]
 
   @@map("institutes")
 }
@@ -82,6 +83,8 @@ model User {
   attendanceRecords       AttendanceRecord[]    @relation("StudentAttendance")
   parentLinksAsParent     ParentStudentLink[]   @relation("ParentLink")
   parentLinksAsStudent    ParentStudentLink[]   @relation("StudentLink")
+  examsCreated            Exam[]                @relation("ExamCreator")
+  marks                   Mark[]                @relation("StudentMarks")
 
   @@unique([instituteId, email])
   @@index([instituteId])
@@ -117,6 +120,7 @@ model Batch {
   bst       BatchSubjectTeacher[]
   materials StudyMaterial[]
   homework  Homework[]
+  exams     Exam[]
 
   @@unique([instituteId, name])
   @@map("batches")
@@ -132,6 +136,7 @@ model Subject {
   bst       BatchSubjectTeacher[]
   materials StudyMaterial[]
   homework  Homework[]
+  exams     Exam[]
 
   @@unique([instituteId, name])
   @@map("subjects")
@@ -302,4 +307,48 @@ model HomeworkStatus {
   @@index([homeworkId])
   @@index([studentId])
   @@map("homework_status")
+}
+// ---------------------------------------------------------------------------
+// Module 11 — Marks / Exams
+// ---------------------------------------------------------------------------
+
+model Exam {
+  id          String   @id @default(cuid())
+  instituteId String   @map("institute_id")
+  batchId     String   @map("batch_id")
+  subjectId   String   @map("subject_id")
+  createdBy   String   @map("created_by")
+  name        String   // e.g. "Mid-Term", "Unit Test 1"
+  examDate    DateTime @map("exam_date")
+  maxMarks    Float    @map("max_marks")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
+  batch     Batch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  subject   Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  creator   User      @relation("ExamCreator", fields: [createdBy], references: [id])
+  marks     Mark[]
+
+  @@index([instituteId])
+  @@index([batchId])
+  @@map("exams")
+}
+
+/// Per-student score for an exam. marksObtained can exceed neither 0 nor the
+/// parent Exam's maxMarks — enforced in the API layer (SQLite has no CHECK
+/// constraint support via Prisma).
+model Mark {
+  id             String  @id @default(cuid())
+  examId         String  @map("exam_id")
+  studentId      String  @map("student_id")
+  marksObtained  Float   @map("marks_obtained")
+  remarks        String?
+
+  exam    Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student User @relation("StudentMarks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, studentId])
+  @@index([examId])
+  @@index([studentId])
+  @@map("marks")
 }
