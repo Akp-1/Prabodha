@@ -43,19 +43,19 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Batches API:** CRUD operations + bulk student assignment.
 - [x] **Subjects API:** CRUD operations.
 
-### Phase 2: Core Entity APIs & UI Wiring (🟡 IN PROGRESS)
+### Phase 2: Core Entity APIs & UI Wiring (✅ COMPLETED)
 - [x] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
 - [x] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
 - [x] **Parent-Student Linking:** Parents API (CRUD, soft-delete) + Parent-Student Links API (create/delete, hard-delete) + ParentsPage UI with enroll modal and real-time link management.
-- [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
-  - [ ] `DirectoryPage` (Teachers/Students lists)
-  - [ ] `AdminResourcePage` (Batches/Subjects management)
+- [x] **Dashboard Wiring (Admin):** Replaced `InstitutionStore` (localStorage mock) with real `fetch()` calls in:
+  - [x] `DirectoryPage` (Teachers/Students lists)
+  - [x] `AdminResourcePage` (Batches/Subjects management)
 - [x] **Password Input on Create Forms:** Admin can now set an initial password (min 8 chars, defaults to `Welcome@123`) when enrolling new teachers or students via `DirectoryPage`. Includes show/hide toggle and client-side validation.
 - [x] **Login Page & Auth Guard:** Build dedicated `/login` route (`instituteSlug`, `email`, `password` form with remembered slug), `AuthProvider` React context (`useAuth`), `GET /api/auth/me` user profile hydration, automatic `/dashboard` auth guard, and TopBar logout integration.
 
 ### Phase 3: Academic Operations (🟡 IN PROGRESS)
 - [x] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
-- [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them.
+- [x] **Timetable UI:** Weekly display grid (Mon–Sat) & session creation modal implemented in `TimetablePage`. *(Pending enhancement: interactive calendar cell editing).*
 - [ ] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
 - [ ] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class.
 
