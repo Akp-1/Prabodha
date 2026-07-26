@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, UserRound, X } from 'lucide-react';
+import { Eye, EyeOff, Plus, Search, UserRound, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 
 export type DirectoryRecord = {
@@ -38,6 +38,8 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('Welcome@123');
+  const [showPassword, setShowPassword] = useState(false);
   const [detail, setDetail] = useState('');
 
   const endpoint = kind === 'Faculty' ? '/api/teachers' : '/api/students';
@@ -74,6 +76,8 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
   const resetForm = () => {
     setName('');
     setEmail('');
+    setPassword('Welcome@123');
+    setShowPassword(false);
     setDetail('');
     setShowForm(false);
   };
@@ -81,10 +85,15 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
   const addRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
+      const trimmedPassword = password.trim();
+      if (trimmedPassword.length < 8) {
+        alert('Password must be at least 8 characters.');
+        return;
+      }
       const body: Record<string, string | number | undefined> = {
         name: name.trim(),
         email: email.trim(),
-        password: 'Welcome@123', // Temporary default — proper password input is a ROADMAP task
+        password: trimmedPassword,
       };
       if (kind === 'Faculty') {
         body.qualification = detail.trim() || undefined;
@@ -154,6 +163,7 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
           <form onSubmit={addRecord} className="space-y-4">
             <label className="block text-sm font-semibold text-ink">Full name<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" placeholder="Enter full name" /></label>
             <label className="block text-sm font-semibold text-ink">Email address<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" placeholder="name@example.com" /></label>
+            <label className="block text-sm font-semibold text-ink">Initial password<span className="relative block"><input required minLength={8} type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 pr-10 font-normal outline-none focus:border-pine" placeholder="Min. 8 characters" /><button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></span></label>
             <label className="block text-sm font-semibold text-ink">{detailLabel}<input value={detail} onChange={(event) => setDetail(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" placeholder={detailPlaceholder} /></label>
             <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={resetForm} className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-ink hover:bg-paper">Cancel</button><button type="submit" className="rounded-md bg-pine px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-deep">Create record</button></div>
           </form>

@@ -227,27 +227,91 @@
 **Focus:** Wire Dashboard UI to Real API Endpoints
 
 ### What was done
-- Created `src/lib/api-client.ts` — a client-side `fetch()` wrapper that auto-attaches the JWT `Authorization: Bearer` header from localStorage. All dashboard pages import this instead of calling `fetch()` directly.
-- **Main Dashboard** (`dashboard/page.tsx`): Replaced hardcoded `MOCK_STATS` with real `fetch()` calls to `/api/students`, `/api/teachers`, and `/api/batches`. The "Getting Started" checklist now auto-checks based on whether real data exists in the database.
-- **DirectoryPage** (`components/dashboard/DirectoryPage.tsx`): Replaced `useInstitutionStore` with `apiFetch()` calls to `/api/teachers` and `/api/students`. The create form now `POST`s to the real API with a temporary default password (`Welcome@123`).
-- **AdminResourcePage** (`components/dashboard/AdminResourcePage.tsx`): Replaced localStorage-backed batches/subjects with `apiFetch()` calls to `/api/batches` and `/api/subjects`. Materials, homework, and assessments remain on `InstitutionStore` since those APIs don't exist yet.
-- **Timetable Page** (`dashboard/timetable/page.tsx`): Replaced `InstitutionStore.sessions` with `apiFetch()` calls to `/api/timetable`. The create form was redesigned: instead of three separate dropdowns (batch, subject, faculty), it now uses a single assignment dropdown populated from `/api/assignments` (e.g., "Physics → Class 11 Science (Dr. Meera Iyer)"), matching the API's `batchSubjectTeacherId` requirement.
-- Updated `ROADMAP.md` with two new tasks: "Password Input on Create Forms" and "Login Page".
+---
+
+## Session 7 — 2026-07-24
+
+**Focus:** Wire Dashboard UI to Real API Endpoints
+
+### What was done
+- Created `src/lib/api-client.ts` — a client-side `fetch()` wrapper that auto-attaches the JWT `Authorization: Bearer` header from localStorage.
+- **Main Dashboard** (`dashboard/page.tsx`): Replaced hardcoded `MOCK_STATS` with real `fetch()` calls to `/api/students`, `/api/teachers`, and `/api/batches`. 
+- **DirectoryPage** (`components/dashboard/DirectoryPage.tsx`): Replaced `useInstitutionStore` with `apiFetch()` calls to `/api/teachers` and `/api/students`. 
+- **AdminResourcePage** (`components/dashboard/AdminResourcePage.tsx`): Replaced localStorage-backed batches/subjects with `apiFetch()` calls to `/api/batches` and `/api/subjects`.
+- **Timetable Page** (`dashboard/timetable/page.tsx`): Replaced `InstitutionStore.sessions` with `apiFetch()` calls to `/api/timetable`. Redesigned form to use a single assignment dropdown populated from `/api/assignments`.
 
 ### Key decisions
-- `InstitutionStore` is **not yet removable** from `(dashboard)/layout.tsx` — it's still required by Attendance, Materials, Homework, Marks, and Settings pages which have no API.
-- Temporary password (`Welcome@123`) used for teacher/student creation until a proper password input is added (tracked in ROADMAP).
-- Timetable form consolidated from 3 dropdowns to 1 assignment dropdown — correct per schema design.
+- `InstitutionStore` is **not yet removable** — still required for Attendance, Materials, Homework, Marks, and Settings pages.
+- Temporary password (`Welcome@123`) used for teacher/student creation until proper password input is added.
 - All API-backed pages show a "Loading…" state while data is being fetched.
 
 ### Verification
 - `npm run build` → ✅ passed (15 pages, 21 API routes, zero TypeScript errors)
-- One lint warning in `AdminResourcePage.tsx` (unnecessary dependency in `useMemo`) — non-blocking
 
 ### What's pending
 - Build a proper Login Page that stores the JWT token
 - Add password field to teacher/student create forms
 - Wire remaining pages (Attendance, Materials, Homework, Marks, Settings) once their APIs are built
+
+---
+
+## Session 8 — 2026-07-25
+
+**Focus:** Login Page UI, AuthProvider Context & Auth Guard Redirection
+
+### What was done
+- Created `src/components/auth/AuthProvider.tsx` — React context providing `useAuth()` hook. Hydrates user session on mount via `GET /api/auth/me`.
+- Wrapped root layout in `AuthProvider` in `src/app/layout.tsx`.
+- Created dedicated `/login` route (`src/app/login/page.tsx`) with branded Prabodha styling, Institute Code / Email / Password inputs.
+- Updated root page `/` and `DashboardLayout` to enforce Auth Guard: unauthenticated users are automatically redirected to `/login`.
+- Updated `TopBar.tsx` to display user info and handle logout.
+
+### Key decisions
+- Last used institute code remembered in `localStorage` for fast repeated logins.
+- `AuthProvider` centralizes authentication state at the root level.
+- Auth Guard runs client-side, showing a loading spinner while verifying token validity.
+
+### Verification
+- `npm run build` → ✅ passed (16 static/dynamic routes generated cleanly).
+
+### What's pending
+- Add password input field to Teacher & Student creation forms in `DirectoryPage.tsx`
+- Parent-Student linking API & UI
+- Attendance API & UI
+
+---
+
+## Session 9 — 2026-07-26
+
+**Focus:** Password Input on Create Forms & Parents Sidebar Navigation
+
+### What was done
+- Modified `src/components/dashboard/DirectoryPage.tsx` — replaced hardcoded `Welcome@123` default with an explicit "Initial password" input field in the create modal. Features include:
+  - Password field pre-filled with `Welcome@123` (editable by admin)
+  - Show/hide password toggle using `Eye`/`EyeOff` Lucide icons
+  - HTML `required` + `minLength={8}` attributes for browser-level validation
+  - Additional client-side `trim()` + length check before API call to catch whitespace-only passwords
+  - Password state resets to default on form close/cancel
+- Modified `src/components/dashboard/Sidebar.tsx` — added `Parents` navigation item between Faculty and Batches, using the `UsersRound` Lucide icon, pointing to `/dashboard/parents`.
+- Created `src/app/(dashboard)/dashboard/parents/page.tsx` — placeholder page so the new nav link doesn't 404. Will be replaced with full `ParentsPage` component once the Parent-Student Linking API is built.
+
+### Key decisions
+- Password defaults to `Welcome@123` rather than empty — admins who don't care about custom passwords can just submit without touching it, preserving the previous UX while making customization possible.
+- Validation is dual-layered: client-side (`trim()` + length check + HTML `minLength`) and server-side (Zod `z.string().min(8)` in both `/api/teachers` and `/api/students`). Whitespace-only passwords are caught by `trim()` reducing them to empty.
+- Parents nav item added now (before the API exists) so admins can see the full navigation structure. The placeholder page clearly communicates what's coming.
+
+### Verification
+- `npm run build` → ✅ passed (17 static pages, 22 API routes, zero TypeScript errors)
+- `npm run lint` → ✅ passed (only pre-existing `useMemo` warning in `AdminResourcePage.tsx`)
+- Edge cases verified:
+  - Empty password → blocked by HTML `required` attribute
+  - Short password (<8 chars) → blocked by HTML `minLength` + JS `alert()`
+  - Whitespace-only password (e.g. `"        "`) → `trim()` reduces to empty → fails length check
+  - Server-side fallback → Zod schema rejects passwords under 8 chars with 422
+
+### What's pending
+- Parent-Student linking API & UI (deferred to next session per user request)
+- Attendance API & UI
 
 ---
 

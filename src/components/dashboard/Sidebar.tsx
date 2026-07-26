@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  LayoutGrid, Users, GraduationCap, Layers, BookOpen, Calendar,
+  LayoutGrid, Users, GraduationCap, UsersRound, Layers, BookOpen, Calendar,
   ClipboardCheck, FileText, BookMarked, Award, Settings, type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ const NAV_ITEMS: { key: string; label: string; href: string; icon: LucideIcon }[
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutGrid },
   { key: 'students', label: 'Learners', href: '/dashboard/students', icon: Users },
   { key: 'teachers', label: 'Faculty', href: '/dashboard/teachers', icon: GraduationCap },
+  { key: 'parents', label: 'Parents', href: '/dashboard/parents', icon: UsersRound },
   { key: 'batches', label: 'Batches', href: '/dashboard/batches', icon: Layers },
   { key: 'subjects', label: 'Subjects', href: '/dashboard/subjects', icon: BookOpen },
   { key: 'timetable', label: 'Timetable', href: '/dashboard/timetable', icon: Calendar },

@@ -50,8 +50,8 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
   - [ ] `DirectoryPage` (Teachers/Students lists)
   - [ ] `AdminResourcePage` (Batches/Subjects management)
-- [ ] **Password Input on Create Forms:** Add a password field to the Teacher and Student create forms in `DirectoryPage`. Currently, the APIs require a password on `POST /api/teachers` and `POST /api/students`, but the UI form has no password input. Add it so the admin can set an initial password when enrolling a new user.
-- [ ] **Login Page:** Build a proper login page at `/` that collects email + password, calls `POST /api/auth/login`, stores the returned JWT token, and redirects to `/dashboard`.
+- [x] **Password Input on Create Forms:** Admin can now set an initial password (min 8 chars, defaults to `Welcome@123`) when enrolling new teachers or students via `DirectoryPage`. Includes show/hide toggle and client-side validation.
+- [x] **Login Page & Auth Guard:** Build dedicated `/login` route (`instituteSlug`, `email`, `password` form with remembered slug), `AuthProvider` React context (`useAuth`), `GET /api/auth/me` user profile hydration, automatic `/dashboard` auth guard, and TopBar logout integration.
 
 ### Phase 3: Academic Operations (🟡 IN PROGRESS)
 - [x] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
