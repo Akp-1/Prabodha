@@ -95,6 +95,28 @@ Manages `BatchSubjectTeacher` records — "teacher X teaches subject Y to batch 
 
 ---
 
+## Parents (`/api/parents/`)
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `GET` | `/api/parents` | Admin | List active parents with linked students. `?includeInactive=true` to include deactivated |
+| `POST` | `/api/parents` | Admin | Create parent. Body: `{ name, email, password, phone? }` |
+| `GET` | `/api/parents/:id` | Admin | Parent detail with linked students |
+| `PATCH` | `/api/parents/:id` | Admin | Update parent profile. Body: `{ name?, phone?, isActive? }` |
+| `DELETE` | `/api/parents/:id` | Admin | Soft delete (sets `isActive: false`) |
+
+---
+
+## Parent-Student Links (`/api/parent-student-links/`)
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| `GET` | `/api/parent-student-links` | Admin | List all links. `?parentId=` and `?studentId=` filters |
+| `POST` | `/api/parent-student-links` | Admin | Create link. Body: `{ parentId, studentId }`. Validates roles and institute ownership. Duplicate → 409 |
+| `DELETE` | `/api/parent-student-links/:id` | Admin | Hard delete link |
+
+---
+
 ## Not Yet Implemented
 
 The following APIs are tracked in `ROADMAP.md` and do not exist yet:
@@ -103,5 +125,5 @@ The following APIs are tracked in `ROADMAP.md` and do not exist yet:
 - **Study Materials API** — Upload and retrieve learning materials
 - **Homework API** — Assign homework, track student completion
 - **Marks/Grades API** — Record and retrieve exam scores
-- **Parent-Student Link API** — Link parent accounts to students
 - **Institute Profile API** — Update institute settings
+

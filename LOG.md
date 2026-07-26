@@ -315,6 +315,66 @@
 
 ---
 
+## Session 10 — 2026-07-26
+
+**Focus:** Parent-Student Linking — API & UI
+
+### What was done
+- Created `src/app/api/parents/route.ts` — `GET` (admin: list active parents with linked
+  students via `parentLinksAsParent`, `?includeInactive=true`), `POST` (admin-only, creates
+  `User` with `role: 'parent'`, Zod validated, password hashed)
+- Created `src/app/api/parents/[id]/route.ts` — `GET` (admin: parent detail with linked
+  students), `PATCH` (admin: update name/phone/isActive), `DELETE` (admin: soft-delete,
+  `isActive: false`)
+- Created `src/app/api/parent-student-links/route.ts` — `GET` (admin: list links, filterable
+  by `?parentId=` or `?studentId=`, includes parent/student names), `POST` (admin: create
+  link, validates both users exist in same institute with correct roles, Prisma `@@unique`
+  handles duplicates → `P2002` → 409)
+- Created `src/app/api/parent-student-links/[id]/route.ts` — `DELETE` (admin: hard delete,
+  verifies institute ownership)
+- Created `src/components/dashboard/ParentsPage.tsx` — full management UI matching the
+  existing DirectoryPage design system:
+  - Parent table with Name, Email, Phone, Linked Learners (badges), Actions columns
+  - Search bar filtering by name/email/phone
+  - "Enroll parent" modal with name, email, phone, initial password (with show/hide toggle)
+  - "Manage links" modal: per-parent, shows all institute students with Link/Unlink buttons,
+    toggles create/delete links in real time via the links API
+- Updated `src/app/(dashboard)/dashboard/parents/page.tsx` to render `<ParentsPage />`
+  (replaces placeholder)
+- Updated `docs/api-reference.md` with Parents and Parent-Student Links sections
+- Updated `ROADMAP.md` — marked "Parent-Student Linking" as complete
+
+### Key decisions
+- Parents API follows the exact same pattern as Teachers/Students APIs: `apiHandler` +
+  `requireAuth` + `requireRole`, Zod validation, institute-scoped queries, `safeSelect`
+  excluding `passwordHash`
+- Parents GET includes `parentLinksAsParent` with linked student details — avoids a separate
+  API call for the UI to show linked learner badges
+- Link creation validates both role correctness (parent must be `role: 'parent'`, student
+  must be `role: 'student'`) AND institute membership — prevents cross-role and cross-institute
+  linking
+- Link delete is hard delete (structural entity), parent delete is soft delete (person) —
+  consistent with the Session 2 delete policy
+- Link management modal fetches students on-open rather than on-mount — avoids unnecessary
+  API calls when the admin doesn't need to manage links
+
+### Verification
+- `npm run build` → ✅ passed (17 static pages, 26 API routes, zero TypeScript errors)
+- Edge case coverage:
+  - Duplicate parent email → Prisma `@@unique([instituteId, email])` → `P2002` → 409
+  - Duplicate parent-student link → Prisma `@@unique([parentId, studentId])` → `P2002` → 409
+  - Linking parent to non-student (e.g., teacher) → `findFirst` with `role: 'student'` returns null → 400
+  - Cross-institute linking → `findFirst` scoped by `user.instituteId` returns null → 400
+  - Soft-deleting parent → links remain intact, parent hidden from default GET list
+  - Hard-deleting link → parent and student records unaffected
+
+### What's pending
+- Attendance API & UI
+- Study Materials API & UI
+- Homework UI (API exists)
+
+---
+
 <!-- Future sessions: copy the template below -->
 <!--
 ## Session N — YYYY-MM-DD

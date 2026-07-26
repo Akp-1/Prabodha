@@ -46,7 +46,7 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 ### Phase 2: Core Entity APIs & UI Wiring (🟡 IN PROGRESS)
 - [x] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
 - [x] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
-- [ ] **Parent-Student Linking:** API to link parent accounts to student profiles.
+- [x] **Parent-Student Linking:** Parents API (CRUD, soft-delete) + Parent-Student Links API (create/delete, hard-delete) + ParentsPage UI with enroll modal and real-time link management.
 - [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
   - [ ] `DirectoryPage` (Teachers/Students lists)
   - [ ] `AdminResourcePage` (Batches/Subjects management)
