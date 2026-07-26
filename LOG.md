@@ -364,6 +364,26 @@
   dashboards) and frontend wiring are the natural next pieces
 
 ---
+### Update — 2026-07-24 (later same day)
+Finished the remaining scope of `AdminResourcePage`: Materials, Homework, and
+Assessments (`/api/exams`) are now wired to their real APIs too, closing out
+"Dashboard Wiring (Admin)" completely — all 5 resource kinds in that component now
+read/write real data, none left on `InstitutionStore`. Added batch/subject `<select>`
+pickers (populated from `/api/batches`/`/api/subjects`) since these three resources
+all require real foreign keys, not free text. Materials additionally has a material
+type selector that swaps the URL field's label/target key (`fileUrl` vs
+`externalLink`) to match the backend's validation.
+
+Manually tested in the browser: created one real batch, subject, material, homework
+item, and assessment through the actual dashboard forms — all persisted and listed
+correctly.
+
+`InstitutionStore` itself is now unused by any wired page, though the file remains
+in the repo (not deleted) since it's still referenced by pages not yet wired
+(Attendance dashboard page, Timetable page, Settings, etc. — see ROADMAP for what's
+left).
+
+
 
 
 <!-- Future sessions: copy the template below -->
