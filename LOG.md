@@ -517,6 +517,143 @@ UI, and a documentation-debt correction pass
 
 ---
 
+## Session 13 — 2026-07-24
+
+**Focus:** Timetable UI
+
+### What was done
+- Rewrote `src/app/(dashboard)/dashboard/timetable/page.tsx` — real data via the
+  already-tested `GET /api/timetable`. Kept the original day-grouped card layout.
+- Replaced the mock form's three free-text fields (Batch/Subject/Faculty) with a
+  single Assignment picker (`GET /api/assignments`), since a real `TimetableSlot`
+  references one `BatchSubjectTeacher` id, not three independent values.
+- Day labels (Monday–Saturday) map to the API's integer `dayOfWeek` under the hood.
+- Time inputs use native `<input type="time">`, producing `"HH:MM"` directly —
+  matches the API's expected format with no client-side parsing.
+- "Add session" is admin-only in the UI, matching the API's `requireRole(user,
+  'admin')` on `POST` — a teacher sees a genuinely read-only view of their own
+  schedule (server-scoped, not client-filtered).
+- Conflict errors (409 from teacher/batch/classroom double-booking) surface
+  directly from the API's message in the form, no client-side re-implementation.
+
+### Key decisions
+- Didn't invent a richer UI (drag-to-reschedule, hourly grid) beyond what the
+  existing mock design already specified — matching established scope, not
+  redesigning while wiring.
+- Students aren't included in the Timetable API's `requireRole` yet, so a genuine
+  student-facing "my timetable" view isn't possible without an API change first —
+  noted as out of scope for this session rather than silently working around it.
+
+### Bug found & fixed (discovered while testing this session)
+- `src/app/(dashboard)/dashboard/attendance/page.tsx` had an infinite-fetch loop:
+  `selectedAssignment` was derived fresh every render (`assignments.find(...)`, no
+  memoization) but used as a `useEffect` dependency. Since React compares
+  dependencies by reference, a new object every render meant the effect never
+  stopped re-firing — the page would hang indefinitely with a continuous stream of
+  `/api/students`/`/api/attendance` requests. Fixed by depending on the primitive
+  `assignmentId` string instead of the derived object.
+
+### Verification
+- Manually tested in the browser: admin created a session, confirmed it appeared
+  under the correct day; created a second overlapping session for the same
+  teacher/day/time and confirmed the API's 409 conflict message surfaced correctly
+  in the form; logged in as the teacher and confirmed the read-only view (own
+  sessions only, no "Add session" button). Also re-verified the Attendance page
+  loaded normally after the infinite-loop fix, with the roster still reloading
+  correctly on class/date changes.
+
+### What's pending
+- Remaining ROADMAP items: Study Materials UI (dedicated), Homework UI (teacher/
+  student views), Marks UI, all of Phase 5 (role-specific dashboards)
+
+---
+
+## Session 14 — 2026-07-24
+
+**Focus:** Study Materials UI (drive-like) + scoped student read access
+
+### What was done
+- **API**: extended `GET /api/materials` and `GET /api/materials/[id]` to allow
+  role `student`, scoped server-side to the student's own `batchId` (resolved from
+  their own `User` row via `user.sub` — no client-supplied batch id is trusted).
+  Read-only — `POST`/`PATCH`/`DELETE` remain admin/teacher-only, unchanged.
+- **UI**: rewrote `src/app/(dashboard)/dashboard/materials/page.tsx` as a dedicated
+  component (previously just delegated to `AdminResourcePage`'s generic table).
+  Materials now group by subject, show a type-specific icon (note/pdf/image/link),
+  and open in a new tab on click. Admin/teacher get the publish form and
+  ownership-gated delete buttons; students get a read-only view with adjusted copy.
+
+### Key decisions
+- Discovered mid-task (checking the API before building the UI) that students were
+  blocked from `/api/materials` entirely — a true "drive-like" student-facing UI
+  wasn't possible without this. Wrote a short `implementation_plan.md` flagging the
+  scope decision and got explicit approval before proceeding, per `agent.md`.
+- Kept the API change narrow: student read access only, scoped to their own batch,
+  no new write paths. Explicitly did NOT add parent access in the same pass — that
+  needs `ParentStudentLink` resolution first and felt like its own piece of work
+  rather than something to fold in silently.
+- Delete buttons in the UI are only rendered when the current user would actually
+  be allowed to delete (admin, or the original uploader) — avoids showing a
+  control that would just 403 if clicked.
+
+### Verification
+- Manually tested in the browser: admin published a material, confirmed it appeared
+  correctly grouped by subject with the right type icon; confirmed a student in the
+  target batch could see it read-only (no publish/delete controls visible); confirmed
+  the click-to-open behavior worked for the material's link
+
+### What's pending
+- Parent access to materials (needs `ParentStudentLink` resolution)
+- Remaining ROADMAP items: Homework UI (teacher/student views), Marks UI, all of
+  Phase 5
+
+---
+
+## Session 15 — 2026-07-24
+
+**Focus:** Homework UI (teacher assign/grade + student self-service completion)
+
+### What was done
+- **API**: extended `GET /api/homework` and `GET /api/homework/[id]` to allow role
+  `student`, scoped to their own `batchId` (same pattern as Session 14's Materials
+  change). Widened the list route's status `select` to include `studentId`, not
+  just `status`, so the UI can find the caller's own row.
+- **API — new write capability**: `PATCH /api/homework/[id]` now has a student
+  self-service branch — a student may update *exactly one* `statuses` entry for
+  *their own* `studentId` and nothing else in the body; any other shape (another
+  student's id, more than one entry, any other field) is rejected with 403. This
+  sits alongside the existing admin/assigner correction path, unchanged.
+- **UI**: rewrote `src/app/(dashboard)/dashboard/homework/page.tsx` as a dedicated
+  component. Admin/teacher get the assign form, a live completion count per item,
+  and delete. Students get a tap-to-toggle completion circle for their own status,
+  with overdue-and-incomplete items highlighted in red.
+
+### Key decisions
+- The student PATCH branch is deliberately **stricter** than admin/assigner's —
+  single-entry, self-only, no other fields — rather than reusing the existing
+  `canWrite`/correction logic with a role check bolted on. Treating "mark my own
+  homework done" as a genuinely different, narrower operation from "correct any
+  student's record" avoided a subtly-too-permissive shared code path.
+- Kept parent access out of scope again (same reasoning as Session 14) — flagged
+  as a shared follow-up for both Materials and Homework rather than solving it
+  twice under time pressure.
+
+### Verification
+- `npm run lint` / `npm run build`: zero errors
+- Manually tested in the browser: admin assigned homework, teacher saw the live
+  completion count, a student in the target batch saw it and toggled their own
+  status via the tap-to-complete circle (persisted after reload)
+- Negative access-control cases explicitly verified via Postman (2026-07-24, follow-up
+  session): a student in a *different* batch gets an empty list and a 403 on direct
+  detail fetch; a student attempting to PATCH another student's status gets 403
+  (self-only check rejects before even reaching the roster check); a student
+  attempting to sneak an unrelated field (e.g. `title`) alongside their own status
+  update gets 403 (the `onlyStatusField` guard catches it)
+
+### What's pending
+- Parent access to Materials + Homework (needs `ParentStudentLink` resolution)
+- Remaining ROADMAP items: Marks UI, all of Phase 5
+
 <!-- Future sessions: copy the template below -->
 <!--
 ## Session N — YYYY-MM-DD
