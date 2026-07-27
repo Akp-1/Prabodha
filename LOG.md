@@ -383,8 +383,139 @@ in the repo (not deleted) since it's still referenced by pages not yet wired
 (Attendance dashboard page, Timetable page, Settings, etc. — see ROADMAP for what's
 left).
 
+## Session 10 — 2026-07-24
 
+**Focus:** Frontend auth foundation (login page + route guard)
 
+### What was done
+- Added `src/lib/api-client.ts` — client-side `fetch` wrapper attaching the bearer
+  token, normalizing errors into a thrown `ApiClientError`
+- Added `src/components/auth/AuthProvider.tsx` — React context for `user`/`login`/
+  `logout`, persists to localStorage, hydrates on mount
+- Wrapped `src/app/layout.tsx` in `AuthProvider`
+- Added `src/app/login/page.tsx` — real login form hitting `POST /api/auth/login`
+- Turned `src/app/(dashboard)/layout.tsx` into a real guard — redirects to `/login`
+  if unauthenticated, previously rendered unconditionally
+- Wired the previously-inert "Sign out" button in `src/components/dashboard/TopBar.tsx`
+  to real `logout()`, added logged-in user display
+
+### Key decisions
+- Token stored in `localStorage`, attached manually via the `Authorization` header
+  on every `apiFetch` call — confirmed first that `requireAuth` only reads that
+  header, not a cookie
+- `AuthProvider`'s localStorage hydration on mount is optimistic (restores UI state
+  instantly) but not verified against the server — an expired token surfaces as a
+  normal failed-request error on the first real API call
+- Matched existing design tokens (`bg-paper`/`bg-saffron`/`font-display` etc. from
+  `tailwind.config.js`) for the login page instead of introducing new styling
+
+### Verification
+- Manually tested in the browser: login with valid admin credentials redirected to
+  `/dashboard`; visiting `/dashboard` directly while logged out redirected to
+  `/login`; Sign Out cleared the session and redirected correctly
+
+---
+
+## Session 11 — 2026-07-24
+
+**Focus:** Parent-Student Linking API + Dashboard Wiring (DirectoryPage, and
+Batches/Subjects in AdminResourcePage)
+
+> Note: this entry is a reconstruction — the original session log for this work
+> was not preserved (a gap discovered and corrected in Session 12). Written from
+> the actual code and its comments rather than memory, so treat specifics about
+> what was manually tested as approximate, not verified against original notes.
+
+### What was done
+- Added `src/app/api/parent-links/route.ts` (`GET`/`POST`) and
+  `src/app/api/parent-links/[id]/route.ts` (`GET`/`DELETE`) — CRUD for
+  `ParentStudentLink`. Admin sees/manages all links; a parent or student can only
+  see their own (query filters ignored for them, same pattern as Assignments).
+  Unique constraint on `[parentId, studentId]` → 409 on a duplicate link, no `PATCH`
+  since the pair *is* the row's identity. Hard delete — structural, not a person.
+- Wired `src/components/dashboard/DirectoryPage.tsx` (Teachers/Students lists) to
+  real `/api/teachers`/`/api/students` calls, replacing `InstitutionStore`.
+- Wired `src/components/dashboard/AdminResourcePage.tsx` for Batches and Subjects
+  to real `/api/batches`/`/api/subjects` calls (Materials/Homework/Assessments for
+  this same component followed later, in Session 12's earlier work — see that
+  entry's note).
+
+### Verification
+- Confirmed working in the browser per user report at the time.
+
+### What's pending (per this reconstruction)
+- Materials/Homework/Assessments wiring in AdminResourcePage — completed later,
+  see Session 12
+- Timetable/Attendance dashboard pages — still on mock data at this point
+
+---
+
+## Session 12 — 2026-07-24
+
+**Focus:** AdminResourcePage completion (Materials/Homework/Assessments), Attendance
+UI, and a documentation-debt correction pass
+
+### What was done
+- Finished the remaining scope of `AdminResourcePage`: wired Materials, Homework,
+  and Assessments (`/api/exams`) to their real APIs, closing out "Dashboard Wiring
+  (Admin)" completely — all 5 resource kinds now read/write real data. Added
+  batch/subject `<select>` pickers (from `/api/batches`/`/api/subjects`) since these
+  three resources need real foreign keys, not free text. Materials additionally has
+  a material-type selector that swaps the URL field between `fileUrl` and
+  `externalLink` to match backend validation.
+- Rewrote `src/app/(dashboard)/dashboard/attendance/page.tsx` — real teacher-facing
+  UI: class picker from `GET /api/assignments`, roster from
+  `GET /api/students?batchId=`, existing-session detection via
+  `GET /api/attendance?...&date=` that pre-fills and switches to `PATCH` instead of
+  re-`POST`ing into a 409, recent-sessions list.
+- **Documentation correction pass**: `ROADMAP.md` was badly stale — Teachers,
+  Students, Parent-Linking, Dashboard Wiring, Timetable API, Attendance API,
+  Materials API, Homework API, and Marks/Grades were all built and tested across
+  Sessions 1–11 but still showed as `[ ]` unchecked. Corrected all of them, split
+  Phase 4's combined "API + UI" lines into separate checkboxes (API done, UI not),
+  and fixed an incorrect claim that auth uses HTTP-only cookies (it's Bearer-via-
+  header, confirmed while building Session 10's login page).
+- Created `docs/api-reference.md` — required by `agent.md`'s workflow but never
+  created in any prior session. Backfilled all 8 existing API resources.
+- **Discovered Sessions 10–12's work had never been logged in `LOG.md`** — the
+  code was written, tested, and pushed, but the corresponding log entries were
+  never actually appended to this file. This entry (and the reconstructed Session
+  11 entry above it) closes that gap.
+
+### Bug found & fixed
+- `src/app/api/parent-links/[id]/route.ts` was misnamed `rote.ts` (typo) since
+  Session 11 — Next.js silently never registered it as a route handler. Confirmed
+  via `npm run build`'s route list showing `/api/parent-links` but not
+  `/api/parent-links/[id]`. `GET`/`DELETE` on a single parent-link have never
+  actually worked; list/create (`/api/parent-links`) were unaffected. Fixed by
+  renaming the file — no code changes needed, the handler logic itself was correct.
+
+### Key decisions
+- Treated stale/missing documentation as a real bug worth fixing immediately,
+  not deferred — a tracker that says "TODO" for done work, or a log with silent
+  gaps, actively misleads whoever (human or agent) reads it next to decide what
+  to do.
+- When reconstructing a missing log entry (Session 11), said so explicitly rather
+  than presenting a guess as a verified record.
+
+### Verification
+- `npm run lint`: zero warnings/errors
+- `npm run build`: succeeds, all routes compile
+- Manually tested Attendance UI in the browser: mark → submit → appears in recent
+  sessions → revisiting same class+date shows pre-fill + "Update attendance" flow
+  instead of a duplicate-session 409
+- ### Verification
+...
+- Parent-links `[id]` route fix re-tested via Postman post-rename: `GET` (200,
+  full link detail) and `DELETE` (204, then 404 on re-fetch) both confirmed working
+
+### What's pending
+  Timetable UI, Study Materials UI (dedicated), Homework UI (teacher/student
+  views), Marks UI — all still open per the corrected `ROADMAP.md`
+- Materials/Homework retrofit onto `src/lib/content-scope.ts` (flagged Session 9,
+  still open)
+
+---
 
 <!-- Future sessions: copy the template below -->
 <!--
