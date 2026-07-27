@@ -15,7 +15,7 @@ This document serves as the central command post for the Prabodha project. It co
 - **Styling:** Tailwind CSS (Custom color palette: Pine, Saffron, Paper)
 - **Database ORM:** Prisma
 - **Database Engine:** SQLite (Local Development) → PostgreSQL (VPS Production)
-- **Authentication:** Custom JWT-based Auth (stored in HTTP-only cookies)
+- **Authentication:** Custom JWT-based Auth (Bearer token, attached via `Authorization` header on each request; stored client-side in localStorage — not HTTP-only cookies, since `requireAuth` only reads the header)
 - **Role-Based Access Control (RBAC):** 4 roles (`admin`, `teacher`, `student`, `parent`)
 
 ---
@@ -43,26 +43,26 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Batches API:** CRUD operations + bulk student assignment.
 - [x] **Subjects API:** CRUD operations.
 
-### Phase 2: Core Entity APIs & UI Wiring (🟡 IN PROGRESS)
-- [ ] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
-- [ ] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
-- [ ] **Parent-Student Linking:** API to link parent accounts to student profiles.
-- [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
-  - [ ] `DirectoryPage` (Teachers/Students lists)
-  - [ ] `AdminResourcePage` (Batches/Subjects management)
+### Phase 2: Core Entity APIs & UI Wiring (✅ COMPLETED)
+- [x] **Teachers API:** CRUD endpoints (`isActive` soft-deletes).
+- [x] **Students API:** CRUD endpoints (`isActive` soft-deletes), teacher-scoped access via `BatchSubjectTeacher`.
+- [x] **Parent-Student Linking:** API to link parent accounts to student profiles (`ParentStudentLink` CRUD).
+- [x] **Dashboard Wiring (Admin):** Replaced `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
+  - [x] `DirectoryPage` (Teachers/Students lists)
+  - [x] `AdminResourcePage` (Batches/Subjects/Materials/Homework/Assessments management — all 5 resource kinds)
 
-### Phase 3: Academic Operations (🔴 TODO)
-- [ ] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
-- [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them.
-- [ ] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
-- [ ] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class.
+### Phase 3: Academic Operations (🟡 IN PROGRESS)
+- [x] **Timetable API:** Endpoints to manage `TimetableSlot`, including teacher/batch/classroom overlap-conflict detection.
+- [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them. *(Not started — still on mock data.)*
+- [x] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
+- [x] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class — wired to real `/api/attendance`, `/api/assignments`, `/api/students`.
 
-### Phase 4: Content & Assessments (🔴 TODO)
-- [ ] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
-- [ ] **Study Materials UI:** A drive-like interface for organizing class notes.
-- [ ] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
-- [ ] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks).
-- [ ] **Marks/Grades:** Build the schema, API, and UI for recording exam/test scores.
+### Phase 4: Content & Assessments (🟡 IN PROGRESS)
+- [x] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
+- [ ] **Study Materials UI:** A drive-like interface for organizing class notes. *(Admin create/list exists via `AdminResourcePage`; no dedicated teacher/student-facing browsing UI yet.)*
+- [x] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
+- [ ] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks). *(Admin create/list exists via `AdminResourcePage`; no teacher grading view or student/parent "my homework" view yet.)*
+- [x] **Marks/Grades:** Schema (`Exam`/`Mark`) + API built and tested. *(No dedicated Marks UI yet beyond `AdminResourcePage`'s basic create/list.)*
 
 ### Phase 5: Role-Specific Dashboards (🔴 TODO)
 - [ ] **Teacher Dashboard:** Restrict views so teachers only see students in batches they are assigned to via `BatchSubjectTeacher`.
