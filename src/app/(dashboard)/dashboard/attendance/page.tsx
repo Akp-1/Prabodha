@@ -99,7 +99,7 @@ export default function AttendancePage() {
         setIsLoadingRoster(false);
       }
     })();
-  }, [selectedAssignment, date]);
+  }, [assignmentId, date]);
 
   async function loadRecent() {
     try {
