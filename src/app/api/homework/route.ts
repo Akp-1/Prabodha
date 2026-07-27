@@ -20,7 +20,7 @@ function summarize(hw: { statuses: { status: string }[] } & Record<string, unkno
 
 export const GET = apiHandler(async (request: NextRequest) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
@@ -34,6 +34,14 @@ export const GET = apiHandler(async (request: NextRequest) => {
         scopeFilter = {
             OR: pairs.length ? pairs.map((p) => ({ batchId: p.batchId, subjectId: p.subjectId })) : [{ id: '__none__' }],
         };
+    } else if (user.role === 'student') {
+        // Read-only: a student sees homework for their own batch. Marking
+        // their own status is handled by PATCH /api/homework/[id], not here.
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        scopeFilter = { batchId: self?.batchId ?? '__none__' };
     }
 
     const homework = await prisma.homework.findMany({
@@ -43,7 +51,9 @@ export const GET = apiHandler(async (request: NextRequest) => {
             ...(subjectId ? { subjectId } : {}),
             ...scopeFilter,
         },
-        include: { ...include, statuses: { select: { status: true } } },
+        // studentId included (not just status) so a student-facing UI can
+        // pick out their own row from the array without a second request.
+        include: { ...include, statuses: { select: { studentId: true, status: true } } },
         orderBy: { dueDate: 'asc' },
     });
 

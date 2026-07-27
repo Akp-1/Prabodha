@@ -22,6 +22,13 @@ function canWrite(user: { role: string; sub: string }, homework: { assignedBy: s
 
 async function canRead(user: { role: string; sub: string; instituteId: string }, homework: { batchId: string; subjectId: string }) {
     if (user.role === 'admin') return true;
+    if (user.role === 'student') {
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        return self?.batchId === homework.batchId;
+    }
     const assigned = await prisma.batchSubjectTeacher.findFirst({
         where: { teacherId: user.sub, instituteId: user.instituteId, batchId: homework.batchId, subjectId: homework.subjectId },
     });
@@ -30,7 +37,7 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
 
 export const GET = apiHandler(async (request: NextRequest, { params }) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
     const id = params.id;
 
     const homework = await findHomework(id, user.instituteId);
@@ -60,14 +67,33 @@ const patchSchema = z.object({
 
 export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
     const id = params.id;
 
     const body = patchSchema.parse(await request.json());
 
     const existing = await findHomework(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Homework not found');
-    if (!canWrite(user, existing)) throw new ApiError(403, 'You do not have permission to do this');
+
+    if (user.role === 'student') {
+        // Self-service only: a student may update nothing except their own
+        // single status entry. Any other field, any other student's id, or
+        // more than one status in the array is rejected outright — this is
+        // deliberately not the same "correction" capability admin/the
+        // assigner have.
+        const onlyStatusField = !body.title && body.description === undefined && !body.dueDate && body.fileUrl === undefined && body.filePath === undefined;
+        const isSelfOnly = body.statuses?.length === 1 && body.statuses[0].studentId === user.sub;
+        if (!onlyStatusField || !isSelfOnly) {
+            throw new ApiError(403, 'You can only update your own completion status');
+        }
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        if (self?.batchId !== existing.batchId) throw new ApiError(403, 'You do not have permission to do this');
+    } else if (!canWrite(user, existing)) {
+        throw new ApiError(403, 'You do not have permission to do this');
+    }
 
     if (body.statuses?.length) {
         const existingStudentIds = new Set(existing.statuses.map((s) => s.studentId));
