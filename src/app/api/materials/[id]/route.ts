@@ -21,9 +21,17 @@ function canWrite(user: { role: string; sub: string }, material: { uploadedBy: s
     return user.role === 'admin' || material.uploadedBy === user.sub;
 }
 
-/** Read access follows the same current-assignment scoping as the list route. */
+/** Read access follows the same current-assignment scoping as the list route.
+ * A student may read any material for their own batch, regardless of subject. */
 async function canRead(user: { role: string; sub: string; instituteId: string }, material: { batchId: string; subjectId: string }) {
     if (user.role === 'admin') return true;
+    if (user.role === 'student') {
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        return self?.batchId === material.batchId;
+    }
     const assigned = await prisma.batchSubjectTeacher.findFirst({
         where: { teacherId: user.sub, instituteId: user.instituteId, batchId: material.batchId, subjectId: material.subjectId },
     });
@@ -32,7 +40,7 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
 
 export const GET = apiHandler(async (request: NextRequest, { params }) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
     const id = params.id;
 
     const material = await findMaterial(id, user.instituteId);

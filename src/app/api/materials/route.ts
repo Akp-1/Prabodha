@@ -22,7 +22,7 @@ async function teacherBatchSubjectPairs(teacherId: string, instituteId: string) 
 
 export const GET = apiHandler(async (request: NextRequest) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
@@ -37,6 +37,14 @@ export const GET = apiHandler(async (request: NextRequest) => {
                 ? pairs.map((p) => ({ batchId: p.batchId, subjectId: p.subjectId }))
                 : [{ id: '__none__' }], // no assignments → no results, instead of an unfiltered query
         };
+    } else if (user.role === 'student') {
+        // A student only ever sees material for their own batch — read-only,
+        // no write access (POST/PATCH/DELETE below stay admin/teacher-only).
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        scopeFilter = { batchId: self?.batchId ?? '__none__' };
     }
 
     const materials = await prisma.studyMaterial.findMany({
