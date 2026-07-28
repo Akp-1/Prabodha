@@ -48,9 +48,17 @@ export async function requireCurrentlyAssigned(user: CurrentUser, batchId: strin
     if (!assigned) throw new ApiError(403, 'You are not assigned to teach this subject for this batch');
 }
 
-/** Read access: admin, or currently assigned to the content's batch/subject. */
+/** Read access: admin; a student for their own batch (any subject); a teacher
+ * currently assigned to this exact batch+subject. */
 export async function canReadContent(user: CurrentUser, batchId: string, subjectId: string): Promise<boolean> {
     if (user.role === 'admin') return true;
+    if (user.role === 'student') {
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        return self?.batchId === batchId;
+    }
     const assigned = await prisma.batchSubjectTeacher.findFirst({
         where: { teacherId: user.sub, instituteId: user.instituteId, batchId, subjectId },
     });

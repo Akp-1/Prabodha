@@ -17,15 +17,21 @@ async function findExam(id: string, instituteId: string) {
     return prisma.exam.findFirst({ where: { id, instituteId }, include: fullInclude });
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+ export const GET = apiHandler(async (request: NextRequest, { params }) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
     const id = params.id;
 
     const exam = await findExam(id, user.instituteId);
     if (!exam) throw new ApiError(404, 'Exam not found');
     if (!(await canReadContent(user, exam.batchId, exam.subjectId))) {
         throw new ApiError(403, 'You do not have permission to do this');
+    }
+
+    if (user.role === 'student') {
+        // Never expose a classmate's score or name in the detail response.
+        const mine = exam.marks.find((m) => m.student.id === user.sub) ?? null;
+        return NextResponse.json({ ...exam, marks: mine ? [mine] : [], myMark: mine });
     }
 
     return NextResponse.json(exam);

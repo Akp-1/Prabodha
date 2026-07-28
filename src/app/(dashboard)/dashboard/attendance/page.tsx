@@ -99,6 +99,7 @@ export default function AttendancePage() {
         setIsLoadingRoster(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId, date]);
 
   async function loadRecent() {
