@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ClipboardCheck, UserRound } from 'lucide-react';
+import { Check, Search } from 'lucide-react';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { CircularProgress } from '@/components/dashboard/CircularProgress';
 
 type Assignment = {
   id: string;
@@ -20,17 +21,24 @@ type AttendanceSession = {
   sessionDate: string;
   batchSubjectTeacherId: string;
   records: AttendanceRecord[];
+  myRecord?: { studentId: string; status: 'present' | 'absent' } | null;
   summary?: { total: number; present: number; absent: number };
-  bst?: { batch: { name: string }; subject: { name: string } };
+  bst?: { batch: { name: string }; subject: { name: string } } | null;
 };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function AttendancePage() {
-  const { user } = useAuth();
+function initials(name: string) {
+  return name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+}
 
+// ---------------------------------------------------------------------------
+// Teacher / admin: fast-input marking grid
+// ---------------------------------------------------------------------------
+
+function TeacherAttendanceView() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignmentId, setAssignmentId] = useState('');
   const [date, setDate] = useState(todayISO());
@@ -38,6 +46,7 @@ export default function AttendancePage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [absentIds, setAbsentIds] = useState<string[]>([]);
   const [existingSessionId, setExistingSessionId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const [recentSessions, setRecentSessions] = useState<AttendanceSession[]>([]);
 
@@ -48,10 +57,8 @@ export default function AttendancePage() {
 
   const selectedAssignment = assignments.find((a) => a.id === assignmentId) ?? null;
   const present = students.length - absentIds.length;
+  const filteredStudents = students.filter((s) => !query || s.name.toLowerCase().includes(query.toLowerCase()));
 
-  // Load this teacher's assignments once (GET /api/assignments is already
-  // scoped to the logged-in teacher — admins would see everything, but this
-  // page is teacher-facing per the ROADMAP item).
   useEffect(() => {
     (async () => {
       setIsLoadingAssignments(true);
@@ -68,9 +75,6 @@ export default function AttendancePage() {
     })();
   }, []);
 
-  // Whenever the batch/subject/date selection changes, load the roster and
-  // check whether today's session already exists — if it does, pre-fill
-  // from it instead of starting fresh, since a second POST would 409.
   useEffect(() => {
     if (!selectedAssignment) return;
     (async () => {
@@ -86,7 +90,7 @@ export default function AttendancePage() {
         ]);
         setStudents(roster);
 
-        const existing = sessions[0]; // unique per [bst, date], so at most one
+        const existing = sessions[0];
         if (existing) {
           setExistingSessionId(existing.id);
           setAbsentIds(existing.records.filter((r) => r.status === 'absent').map((r) => r.studentId));
@@ -107,7 +111,7 @@ export default function AttendancePage() {
       const sessions = await apiFetch<AttendanceSession[]>('/api/attendance');
       setRecentSessions(sessions.slice(0, 8));
     } catch {
-      // Non-fatal — the recent-sessions list just stays empty.
+      // Non-fatal.
     }
   }
 
@@ -117,6 +121,10 @@ export default function AttendancePage() {
 
   function toggle(studentId: string) {
     setAbsentIds((current) => (current.includes(studentId) ? current.filter((id) => id !== studentId) : [...current, studentId]));
+  }
+
+  function markAllPresent() {
+    setAbsentIds([]);
   }
 
   async function submit() {
@@ -130,10 +138,7 @@ export default function AttendancePage() {
       }));
 
       if (existingSessionId) {
-        await apiFetch(`/api/attendance/${existingSessionId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ records }),
-        });
+        await apiFetch(`/api/attendance/${existingSessionId}`, { method: 'PATCH', body: JSON.stringify({ records }) });
       } else {
         const created = await apiFetch<AttendanceSession>('/api/attendance', {
           method: 'POST',
@@ -150,87 +155,94 @@ export default function AttendancePage() {
   }
 
   return (
-      <div className="max-w-[1040px]">
-        <div className="mb-8">
+      <div className="max-w-[1120px]">
+        <div className="mb-6">
           <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Daily operations</div>
           <h1 className="font-display font-semibold text-[32px] tracking-tight">Attendance</h1>
-          <p className="text-ink-soft mt-2">Every learner starts as present. Mark absences, then submit one reliable class record.</p>
         </div>
 
         {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="rounded-xl border border-line bg-white overflow-hidden">
-            <div className="grid gap-3 border-b border-line bg-paper px-5 py-4 sm:grid-cols-2">
-              <label className="text-xs font-semibold">
-                Class (batch · subject)
-                <select
-                    value={assignmentId}
-                    onChange={(e) => setAssignmentId(e.target.value)}
-                    disabled={isLoadingAssignments || !assignments.length}
-                    className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm font-normal"
-                >
-                  {!assignments.length && <option>No assigned classes</option>}
-                  {assignments.map((a) => (
-                      <option key={a.id} value={a.id}>{a.batch.name} · {a.subject.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs font-semibold">
-                Date
-                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 text-sm font-normal" />
-              </label>
-            </div>
-
+        <div className="mb-5 flex flex-col gap-4 rounded-xl border border-line bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+                value={assignmentId}
+                onChange={(e) => setAssignmentId(e.target.value)}
+                disabled={isLoadingAssignments || !assignments.length}
+                className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold"
+            >
+              {!assignments.length && <option>No assigned classes</option>}
+              {assignments.map((a) => (
+                  <option key={a.id} value={a.id}>{a.batch.name} · {a.subject.name}</option>
+              ))}
+            </select>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold" />
             {existingSessionId && (
-                <div className="border-b border-line bg-saffron/10 px-5 py-2.5 text-xs font-semibold text-saffron-deep">
-                  Attendance already submitted for this class and date — editing will update the existing record.
-                </div>
+                <span className="rounded-md bg-saffron/15 px-2.5 py-1 text-xs font-semibold text-saffron-deep">Already submitted — editing will update</span>
             )}
+          </div>
 
-            <div className="divide-y divide-line">
-              {isLoadingRoster ? (
-                  <div className="px-5 py-12 text-center text-sm text-ink-soft">Loading roster…</div>
-              ) : students.length ? students.map((s) => {
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-32 overflow-hidden rounded-full bg-line">
+                <div className="h-full bg-pine transition-all" style={{ width: students.length ? `${(present / students.length) * 100}%` : '0%' }} />
+              </div>
+              <span className="text-xs font-semibold text-ink-soft whitespace-nowrap">{present}/{students.length} present</span>
+            </div>
+            <label className="flex items-center gap-2 rounded-md border border-line bg-paper px-3 py-2 text-sm">
+              <Search size={15} className="text-ink-soft" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search student..." className="w-36 bg-transparent outline-none placeholder:text-ink-soft" />
+            </label>
+            <button onClick={markAllPresent} className="whitespace-nowrap rounded-md border border-line px-3 py-2 text-xs font-semibold hover:bg-paper">Mark all present</button>
+          </div>
+        </div>
+
+        {isLoadingRoster ? (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading roster…</div>
+        ) : filteredStudents.length ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {filteredStudents.map((s) => {
                 const absent = absentIds.includes(s.id);
                 return (
-                    <div key={s.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-pine/10 text-pine"><UserRound size={17} /></div>
-                        <div>
-                          <div className="font-semibold text-sm">{s.name}</div>
-                          <div className="text-xs text-ink-soft">{s.email}</div>
-                        </div>
+                    <button
+                        key={s.id}
+                        onClick={() => toggle(s.id)}
+                        className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                            absent ? 'border-red-200 bg-red-50' : 'border-line bg-white hover:border-pine/40'
+                        }`}
+                    >
+                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${absent ? 'bg-red-100 text-red-700' : 'bg-pine/10 text-pine'}`}>
+                        {initials(s.name)}
                       </div>
-                      <button
-                          onClick={() => toggle(s.id)}
-                          className={absent ? 'rounded-md border border-saffron bg-saffron/10 px-3 py-2 text-xs font-semibold text-saffron-deep' : 'rounded-md bg-pine px-3 py-2 text-xs font-semibold text-white'}
-                      >
-                        {absent ? 'Absent' : 'Present'}
-                      </button>
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold text-ink">{s.name}</div>
+                        <span
+                            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+                                absent ? 'bg-red-600 text-white' : 'bg-pine text-white'
+                            }`}
+                        >
+                    {absent ? 'Absent' : 'Present'}
+                  </span>
+                      </div>
+                    </button>
                 );
-              }) : <div className="px-5 py-12 text-center text-sm text-ink-soft">No learners are assigned to this batch.</div>}
+              })}
             </div>
-          </section>
+        ) : (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">
+              {students.length ? 'No students match your search.' : 'No learners are assigned to this batch.'}
+            </div>
+        )}
 
-          <aside className="h-fit rounded-xl border border-line bg-white p-6">
-            <ClipboardCheck className="text-pine mb-5" size={27} />
-            <div className="font-display text-xl font-semibold">{existingSessionId ? 'Update submission' : 'Ready to submit'}</div>
-            <div className="mt-5 space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-ink-soft">Present</span><strong>{present}</strong></div>
-              <div className="flex justify-between"><span className="text-ink-soft">Absent</span><strong>{absentIds.length}</strong></div>
-              <div className="flex justify-between"><span className="text-ink-soft">Total learners</span><strong>{students.length}</strong></div>
-            </div>
-            <button
-                disabled={!students.length || isSubmitting}
-                onClick={submit}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-pine px-4 py-3 text-sm font-semibold text-white hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Check size={17} />
-              {isSubmitting ? 'Saving…' : existingSessionId ? 'Update attendance' : 'Submit attendance'}
-            </button>
-          </aside>
+        <div className="sticky bottom-4 mt-6 flex justify-end">
+          <button
+              disabled={!students.length || isSubmitting}
+              onClick={submit}
+              className="inline-flex items-center gap-2 rounded-full bg-pine px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-pine-deep disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Check size={17} />
+            {isSubmitting ? 'Saving…' : existingSessionId ? 'Update attendance' : 'Submit attendance'}
+          </button>
         </div>
 
         <section className="mt-8 overflow-hidden rounded-xl border border-line bg-white">
@@ -245,4 +257,195 @@ export default function AttendancePage() {
         </section>
       </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Student: personal read-only view — Subject-wise / Log / Monthly / Overall
+// ---------------------------------------------------------------------------
+
+type Tab = 'subject' | 'log' | 'monthly' | 'overall';
+
+function StudentAttendanceView() {
+  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('subject');
+
+  const [logFilter, setLogFilter] = useState<'absent' | 'present' | 'both'>('both');
+  const [logSubject, setLogSubject] = useState('all');
+
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await apiFetch<AttendanceSession[]>('/api/attendance');
+        setSessions(data);
+      } catch (err) {
+        setError(err instanceof ApiClientError ? err.message : 'Failed to load your attendance.');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
+  const withStatus = sessions.filter((s) => s.myRecord);
+
+  const subjectStats = useMemo(() => {
+    const bySubject = new Map<string, { total: number; present: number }>();
+    for (const s of withStatus) {
+      const name = s.bst?.subject?.name ?? 'Unknown';
+      const entry = bySubject.get(name) ?? { total: 0, present: 0 };
+      entry.total += 1;
+      if (s.myRecord?.status === 'present') entry.present += 1;
+      bySubject.set(name, entry);
+    }
+    return [...bySubject.entries()]
+        .map(([name, { total, present }]) => ({ name, total, present, percent: total ? (present / total) * 100 : 0 }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+  }, [withStatus]);
+
+  const subjectNames = useMemo(() => [...new Set(withStatus.map((s) => s.bst?.subject?.name ?? 'Unknown'))].sort(), [withStatus]);
+
+  const logRows = useMemo(() => {
+    return withStatus
+        .filter((s) => logFilter === 'both' || s.myRecord?.status === logFilter)
+        .filter((s) => logSubject === 'all' || s.bst?.subject?.name === logSubject)
+        .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate));
+  }, [withStatus, logFilter, logSubject]);
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const monthlyStats = useMemo(() => {
+    const inMonth = withStatus.filter((s) => {
+      const d = new Date(s.sessionDate);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    const present = inMonth.filter((s) => s.myRecord?.status === 'present').length;
+    return { total: inMonth.length, present, percent: inMonth.length ? (present / inMonth.length) * 100 : 0 };
+  }, [withStatus, currentMonth, currentYear]);
+
+  const overallStats = useMemo(() => {
+    const present = withStatus.filter((s) => s.myRecord?.status === 'present').length;
+    return { total: withStatus.length, present, percent: withStatus.length ? (present / withStatus.length) * 100 : 0 };
+  }, [withStatus]);
+
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'subject', label: 'Subject-wise' },
+    { key: 'log', label: 'Log' },
+    { key: 'monthly', label: 'Monthly' },
+    { key: 'overall', label: 'Overall' },
+  ];
+
+  return (
+      <div className="max-w-[900px]">
+        <div className="mb-6">
+          <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">My records</div>
+          <h1 className="font-display font-semibold text-[32px] tracking-tight">Attendance</h1>
+        </div>
+
+        {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
+
+        <div className="mb-5 flex gap-1 rounded-lg border border-line bg-white p-1 w-fit">
+          {TABS.map((t) => (
+              <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                      tab === t.key ? 'bg-pine text-white' : 'text-ink-soft hover:bg-paper'
+                  }`}
+              >
+                {t.label}
+              </button>
+          ))}
+        </div>
+
+        {isLoading ? (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading attendance…</div>
+        ) : !withStatus.length ? (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">No attendance has been recorded for you yet.</div>
+        ) : (
+            <>
+              {tab === 'subject' && (
+                  <div className="rounded-xl border border-line bg-white p-6 space-y-4">
+                    {subjectStats.map((s) => (
+                        <div key={s.name}>
+                          <div className="mb-1.5 flex justify-between text-sm">
+                            <span className="font-semibold text-ink">{s.name}</span>
+                            <span className="text-ink-soft">{s.percent.toFixed(0)}% ({s.present}/{s.total})</span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-line">
+                            <div
+                                className={`h-full rounded-full ${s.percent >= 75 ? 'bg-pine' : 'bg-saffron-deep'}`}
+                                style={{ width: `${s.percent}%` }}
+                            />
+                          </div>
+                        </div>
+                    ))}
+                  </div>
+              )}
+
+              {tab === 'log' && (
+                  <div className="rounded-xl border border-line bg-white p-6">
+                    <div className="mb-5 flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-3 text-sm">
+                        {(['absent', 'present', 'both'] as const).map((f) => (
+                            <label key={f} className="flex items-center gap-1.5 capitalize">
+                              <input type="radio" checked={logFilter === f} onChange={() => setLogFilter(f)} />
+                              {f}
+                            </label>
+                        ))}
+                      </div>
+                      <select value={logSubject} onChange={(e) => setLogSubject(e.target.value)} className="ml-auto rounded-md border border-line bg-white px-3 py-1.5 text-sm">
+                        <option value="all">All subjects</option>
+                        {subjectNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div className="divide-y divide-line">
+                      {logRows.length ? logRows.map((s) => (
+                          <div key={s.id} className="flex items-center justify-between py-3 text-sm">
+                            <div>
+                              <div className="font-semibold text-ink">{s.sessionDate.slice(0, 10)}</div>
+                              <div className="text-xs text-ink-soft">{s.bst?.subject?.name ?? '—'}</div>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${s.myRecord?.status === 'present' ? 'bg-pine/10 text-pine' : 'bg-red-100 text-red-700'}`}>
+                      {s.myRecord?.status}
+                    </span>
+                          </div>
+                      )) : <p className="py-8 text-center text-sm text-ink-soft">No matching records.</p>}
+                    </div>
+                  </div>
+              )}
+
+              {tab === 'monthly' && (
+                  <div className="flex items-center gap-8 rounded-xl border border-line bg-white p-8">
+                    <CircularProgress percent={monthlyStats.percent} />
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between gap-8"><span className="text-ink-soft">Current month attendance</span><strong>{monthlyStats.percent.toFixed(0)}%</strong></div>
+                      <div className="flex justify-between gap-8"><span className="text-ink-soft">Sessions present</span><strong>{monthlyStats.present}/{monthlyStats.total}</strong></div>
+                      <div className="flex justify-between gap-8"><span className="text-ink-soft">Month</span><strong>{now.toLocaleString('default', { month: 'long', year: 'numeric' })}</strong></div>
+                    </div>
+                  </div>
+              )}
+
+              {tab === 'overall' && (
+                  <div className="flex items-center gap-8 rounded-xl border border-line bg-white p-8">
+                    <CircularProgress percent={overallStats.percent} />
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between gap-8"><span className="text-ink-soft">Overall percentage</span><strong>{overallStats.percent.toFixed(0)}%</strong></div>
+                      <div className="flex justify-between gap-8"><span className="text-ink-soft">Sessions present</span><strong>{overallStats.present}/{overallStats.total}</strong></div>
+                    </div>
+                  </div>
+              )}
+            </>
+        )}
+      </div>
+  );
+}
+
+export default function AttendancePage() {
+  const { user } = useAuth();
+  if (user?.role === 'student') return <StudentAttendanceView />;
+  return <TeacherAttendanceView />;
 }

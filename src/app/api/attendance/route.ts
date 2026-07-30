@@ -24,15 +24,23 @@ async function attachBst<T extends { batchSubjectTeacherId: string }>(sessions: 
     return sessions.map((s) => ({ ...s, bst: byId.get(s.batchSubjectTeacherId) ?? null }));
 }
 
-function summarize(session: { records: { status: string }[] } & Record<string, unknown>) {
+function summarize(session: { records: { studentId: string; status: string }[] } & Record<string, unknown>) {
     const total = session.records.length;
     const present = session.records.filter((r) => r.status === 'present').length;
     return { ...session, summary: { total, present, absent: total - present } };
 }
 
+/** Strips every record except the student's own before the response goes out
+ * — a student must never see a classmate's present/absent status. Mirrors the
+ * same pattern used for Marks (src/app/api/exams/route.ts's hideOthersMarks). */
+function hideOthersRecords<T extends { records: { studentId: string; status: string }[] }>(session: T, studentId: string) {
+    const mine = session.records.find((r) => r.studentId === studentId) ?? null;
+    return { ...session, records: mine ? [mine] : [], myRecord: mine };
+}
+
 export const GET = apiHandler(async (request: NextRequest) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher');
+    requireRole(user, 'admin', 'teacher', 'student');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
@@ -43,12 +51,21 @@ export const GET = apiHandler(async (request: NextRequest) => {
     // Resolve which BatchSubjectTeacher ids are in scope, based on the filters
     // and the caller's role, then filter sessions by that id list — since we
     // can't traverse the relation directly in the `where` clause.
+    let studentBatchId: string | undefined;
+    if (user.role === 'student') {
+        const self = await prisma.user.findFirst({
+            where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
+            select: { batchId: true },
+        });
+        studentBatchId = self?.batchId ?? '__none__';
+    }
+
     let bstFilter: { in: string[] } | undefined;
-    if (batchId || subjectId || user.role === 'teacher') {
+    if (batchId || subjectId || user.role === 'teacher' || user.role === 'student') {
         const matchingBsts = await prisma.batchSubjectTeacher.findMany({
             where: {
                 instituteId: user.instituteId,
-                ...(batchId ? { batchId } : {}),
+                ...(user.role === 'student' ? { batchId: studentBatchId } : batchId ? { batchId } : {}),
                 ...(subjectId ? { subjectId } : {}),
                 ...(user.role === 'teacher' ? { teacherId: user.sub } : {}),
             },
@@ -72,13 +89,16 @@ export const GET = apiHandler(async (request: NextRequest) => {
             ...(bstFilter ? { batchSubjectTeacherId: bstFilter } : {}),
         },
         include: {
-            records: { select: { status: true } },
+            records: { select: { studentId: true, status: true } },
         },
         orderBy: { sessionDate: 'desc' },
     });
 
     const withBst = await attachBst(sessions);
-    return NextResponse.json(withBst.map(summarize));
+    const summarized = withBst.map(summarize);
+    const response = user.role === 'student' ? summarized.map((s) => hideOthersRecords(s, user.sub)) : summarized;
+
+    return NextResponse.json(response);
 });
 
 const postSchema = z.object({

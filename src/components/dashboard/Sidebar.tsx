@@ -2,7 +2,7 @@
 
 import {
   LayoutGrid, Users, GraduationCap, Layers, BookOpen, Calendar,
-  ClipboardCheck, FileText, BookMarked, Award, Settings, type LucideIcon,
+  ClipboardCheck, FileText, BookMarked, Award, Settings, UsersRound, type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -12,18 +12,20 @@ type Role = 'admin' | 'teacher' | 'student' | 'parent';
 
 // Which roles can meaningfully use each page — kept in sync with the actual
 // API's requireRole calls, not just "looks relevant." A link only appears if
-// the underlying data would actually load for that role: e.g. Timetable and
-// Attendance currently block students entirely at the API layer (see
-// src/app/api/timetable/route.ts, src/app/api/attendance/route.ts), so
-// students don't get a nav link to a page that would just show an error.
+// the underlying data would actually load for that role: e.g. Timetable
+// still blocks students entirely at the API layer (see
+// src/app/api/timetable/route.ts), so students don't get a nav link to a
+// page that would just show an error. Attendance now supports a student's
+// own (read-only) view, added alongside a dedicated student UI.
 const NAV_ITEMS: { key: string; label: string; href: string; icon: LucideIcon; roles: Role[] }[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: LayoutGrid, roles: ['admin', 'teacher', 'student', 'parent'] },
   { key: 'students', label: 'Learners', href: '/dashboard/students', icon: Users, roles: ['admin'] },
   { key: 'teachers', label: 'Faculty', href: '/dashboard/teachers', icon: GraduationCap, roles: ['admin'] },
+  { key: 'parents', label: 'Parents', href: '/dashboard/parents', icon: UsersRound, roles: ['admin'] },
   { key: 'batches', label: 'Batches', href: '/dashboard/batches', icon: Layers, roles: ['admin'] },
   { key: 'subjects', label: 'Subjects', href: '/dashboard/subjects', icon: BookOpen, roles: ['admin'] },
   { key: 'timetable', label: 'Timetable', href: '/dashboard/timetable', icon: Calendar, roles: ['admin', 'teacher'] },
-  { key: 'attendance', label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher'] },
+  { key: 'attendance', label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher', 'student'] },
   { key: 'materials', label: 'Materials', href: '/dashboard/materials', icon: FileText, roles: ['admin', 'teacher', 'student'] },
   { key: 'homework', label: 'Homework', href: '/dashboard/homework', icon: BookMarked, roles: ['admin', 'teacher', 'student'] },
   { key: 'marks', label: 'Marks', href: '/dashboard/marks', icon: Award, roles: ['admin', 'teacher', 'student'] },
