@@ -654,6 +654,159 @@ UI, and a documentation-debt correction pass
 - Parent access to Materials + Homework (needs `ParentStudentLink` resolution)
 - Remaining ROADMAP items: Marks UI, all of Phase 5
 
+## Session 7 — 2026-07-24
+
+**Focus:** Wire Dashboard UI to Real API Endpoints
+
+### What was done
+---
+
+## Session 7 — 2026-07-24
+
+**Focus:** Wire Dashboard UI to Real API Endpoints
+
+### What was done
+- Created `src/lib/api-client.ts` — a client-side `fetch()` wrapper that auto-attaches the JWT `Authorization: Bearer` header from localStorage.
+- **Main Dashboard** (`dashboard/page.tsx`): Replaced hardcoded `MOCK_STATS` with real `fetch()` calls to `/api/students`, `/api/teachers`, and `/api/batches`. 
+- **DirectoryPage** (`components/dashboard/DirectoryPage.tsx`): Replaced `useInstitutionStore` with `apiFetch()` calls to `/api/teachers` and `/api/students`. 
+- **AdminResourcePage** (`components/dashboard/AdminResourcePage.tsx`): Replaced localStorage-backed batches/subjects with `apiFetch()` calls to `/api/batches` and `/api/subjects`.
+- **Timetable Page** (`dashboard/timetable/page.tsx`): Replaced `InstitutionStore.sessions` with `apiFetch()` calls to `/api/timetable`. Redesigned form to use a single assignment dropdown populated from `/api/assignments`.
+
+### Key decisions
+- `InstitutionStore` is **not yet removable** — still required for Attendance, Materials, Homework, Marks, and Settings pages.
+- Temporary password (`Welcome@123`) used for teacher/student creation until proper password input is added.
+- All API-backed pages show a "Loading…" state while data is being fetched.
+
+### Verification
+- `npm run build` → ✅ passed (15 pages, 21 API routes, zero TypeScript errors)
+
+### What's pending
+- Build a proper Login Page that stores the JWT token
+- Add password field to teacher/student create forms
+- Wire remaining pages (Attendance, Materials, Homework, Marks, Settings) once their APIs are built
+
+---
+
+## Session 8 — 2026-07-25
+
+**Focus:** Login Page UI, AuthProvider Context & Auth Guard Redirection
+
+### What was done
+- Created `src/components/auth/AuthProvider.tsx` — React context providing `useAuth()` hook. Hydrates user session on mount via `GET /api/auth/me`.
+- Wrapped root layout in `AuthProvider` in `src/app/layout.tsx`.
+- Created dedicated `/login` route (`src/app/login/page.tsx`) with branded Prabodha styling, Institute Code / Email / Password inputs.
+- Updated root page `/` and `DashboardLayout` to enforce Auth Guard: unauthenticated users are automatically redirected to `/login`.
+- Updated `TopBar.tsx` to display user info and handle logout.
+
+### Key decisions
+- Last used institute code remembered in `localStorage` for fast repeated logins.
+- `AuthProvider` centralizes authentication state at the root level.
+- Auth Guard runs client-side, showing a loading spinner while verifying token validity.
+
+### Verification
+- `npm run build` → ✅ passed (16 static/dynamic routes generated cleanly).
+
+### What's pending
+- Add password input field to Teacher & Student creation forms in `DirectoryPage.tsx`
+- Parent-Student linking API & UI
+- Attendance API & UI
+
+---
+
+## Session 9 — 2026-07-26
+
+**Focus:** Password Input on Create Forms & Parents Sidebar Navigation
+
+### What was done
+- Modified `src/components/dashboard/DirectoryPage.tsx` — replaced hardcoded `Welcome@123` default with an explicit "Initial password" input field in the create modal. Features include:
+  - Password field pre-filled with `Welcome@123` (editable by admin)
+  - Show/hide password toggle using `Eye`/`EyeOff` Lucide icons
+  - HTML `required` + `minLength={8}` attributes for browser-level validation
+  - Additional client-side `trim()` + length check before API call to catch whitespace-only passwords
+  - Password state resets to default on form close/cancel
+- Modified `src/components/dashboard/Sidebar.tsx` — added `Parents` navigation item between Faculty and Batches, using the `UsersRound` Lucide icon, pointing to `/dashboard/parents`.
+- Created `src/app/(dashboard)/dashboard/parents/page.tsx` — placeholder page so the new nav link doesn't 404. Will be replaced with full `ParentsPage` component once the Parent-Student Linking API is built.
+
+### Key decisions
+- Password defaults to `Welcome@123` rather than empty — admins who don't care about custom passwords can just submit without touching it, preserving the previous UX while making customization possible.
+- Validation is dual-layered: client-side (`trim()` + length check + HTML `minLength`) and server-side (Zod `z.string().min(8)` in both `/api/teachers` and `/api/students`). Whitespace-only passwords are caught by `trim()` reducing them to empty.
+- Parents nav item added now (before the API exists) so admins can see the full navigation structure. The placeholder page clearly communicates what's coming.
+
+### Verification
+- `npm run build` → ✅ passed (17 static pages, 22 API routes, zero TypeScript errors)
+- `npm run lint` → ✅ passed (only pre-existing `useMemo` warning in `AdminResourcePage.tsx`)
+- Edge cases verified:
+  - Empty password → blocked by HTML `required` attribute
+  - Short password (<8 chars) → blocked by HTML `minLength` + JS `alert()`
+  - Whitespace-only password (e.g. `"        "`) → `trim()` reduces to empty → fails length check
+  - Server-side fallback → Zod schema rejects passwords under 8 chars with 422
+
+### What's pending
+- Parent-Student linking API & UI (deferred to next session per user request)
+- Attendance API & UI
+
+---
+
+## Session 10 — 2026-07-26
+
+**Focus:** Parent-Student Linking — API & UI
+
+### What was done
+- Created `src/app/api/parents/route.ts` — `GET` (admin: list active parents with linked
+  students via `parentLinksAsParent`, `?includeInactive=true`), `POST` (admin-only, creates
+  `User` with `role: 'parent'`, Zod validated, password hashed)
+- Created `src/app/api/parents/[id]/route.ts` — `GET` (admin: parent detail with linked
+  students), `PATCH` (admin: update name/phone/isActive), `DELETE` (admin: soft-delete,
+  `isActive: false`)
+- Created `src/app/api/parent-student-links/route.ts` — `GET` (admin: list links, filterable
+  by `?parentId=` or `?studentId=`, includes parent/student names), `POST` (admin: create
+  link, validates both users exist in same institute with correct roles, Prisma `@@unique`
+  handles duplicates → `P2002` → 409)
+- Created `src/app/api/parent-student-links/[id]/route.ts` — `DELETE` (admin: hard delete,
+  verifies institute ownership)
+- Created `src/components/dashboard/ParentsPage.tsx` — full management UI matching the
+  existing DirectoryPage design system:
+  - Parent table with Name, Email, Phone, Linked Learners (badges), Actions columns
+  - Search bar filtering by name/email/phone
+  - "Enroll parent" modal with name, email, phone, initial password (with show/hide toggle)
+  - "Manage links" modal: per-parent, shows all institute students with Link/Unlink buttons,
+    toggles create/delete links in real time via the links API
+- Updated `src/app/(dashboard)/dashboard/parents/page.tsx` to render `<ParentsPage />`
+  (replaces placeholder)
+- Updated `docs/api-reference.md` with Parents and Parent-Student Links sections
+- Updated `ROADMAP.md` — marked "Parent-Student Linking" as complete
+
+### Key decisions
+- Parents API follows the exact same pattern as Teachers/Students APIs: `apiHandler` +
+  `requireAuth` + `requireRole`, Zod validation, institute-scoped queries, `safeSelect`
+  excluding `passwordHash`
+- Parents GET includes `parentLinksAsParent` with linked student details — avoids a separate
+  API call for the UI to show linked learner badges
+- Link creation validates both role correctness (parent must be `role: 'parent'`, student
+  must be `role: 'student'`) AND institute membership — prevents cross-role and cross-institute
+  linking
+- Link delete is hard delete (structural entity), parent delete is soft delete (person) —
+  consistent with the Session 2 delete policy
+- Link management modal fetches students on-open rather than on-mount — avoids unnecessary
+  API calls when the admin doesn't need to manage links
+
+### Verification
+- `npm run build` → ✅ passed (17 static pages, 26 API routes, zero TypeScript errors)
+- Edge case coverage:
+  - Duplicate parent email → Prisma `@@unique([instituteId, email])` → `P2002` → 409
+  - Duplicate parent-student link → Prisma `@@unique([parentId, studentId])` → `P2002` → 409
+  - Linking parent to non-student (e.g., teacher) → `findFirst` with `role: 'student'` returns null → 400
+  - Cross-institute linking → `findFirst` scoped by `user.instituteId` returns null → 400
+  - Soft-deleting parent → links remain intact, parent hidden from default GET list
+  - Hard-deleting link → parent and student records unaffected
+
+### What's pending
+- Attendance API & UI
+- Study Materials API & UI
+- Homework UI (API exists)
+
+---
+
 <!-- Future sessions: copy the template below -->
 <!--
 ## Session N — YYYY-MM-DD

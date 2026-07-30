@@ -43,26 +43,26 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Batches API:** CRUD operations + bulk student assignment.
 - [x] **Subjects API:** CRUD operations.
 
-### Phase 2: Core Entity APIs & UI Wiring (✅ COMPLETED)
-- [x] **Teachers API:** CRUD endpoints (`isActive` soft-deletes).
-- [x] **Students API:** CRUD endpoints (`isActive` soft-deletes), teacher-scoped access via `BatchSubjectTeacher`.
-- [x] **Parent-Student Linking:** API to link parent accounts to student profiles (`ParentStudentLink` CRUD).
-- [x] **Dashboard Wiring (Admin):** Replaced `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
-  - [x] `DirectoryPage` (Teachers/Students lists)
-  - [x] `AdminResourcePage` (Batches/Subjects/Materials/Homework/Assessments management — all 5 resource kinds)
+### Phase 2: Core Entity APIs & UI Wiring (🟡 IN PROGRESS)
+- [ ] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
+- [ ] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
+- [ ] **Parent-Student Linking:** API to link parent accounts to student profiles.
+- [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
+  - [ ] `DirectoryPage` (Teachers/Students lists)
+  - [ ] `AdminResourcePage` (Batches/Subjects management)
 
-### Phase 3: Academic Operations (🟡 IN PROGRESS)
-- [x] **Timetable API:** Endpoints to manage `TimetableSlot`, including teacher/batch/classroom overlap-conflict detection.
-- [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them. *(Not started — still on mock data.)*
-- [x] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
-- [x] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class — wired to real `/api/attendance`, `/api/assignments`, `/api/students`.
+### Phase 3: Academic Operations (🔴 TODO)
+- [ ] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
+- [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them.
+- [ ] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
+- [ ] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class.
 
-### Phase 4: Content & Assessments (🟡 IN PROGRESS)
-- [x] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
-- [ ] **Study Materials UI:** A drive-like interface for organizing class notes. *(Admin create/list exists via `AdminResourcePage`; no dedicated teacher/student-facing browsing UI yet.)*
-- [x] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
-- [ ] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks). *(Admin create/list exists via `AdminResourcePage`; no teacher grading view or student/parent "my homework" view yet.)*
-- [x] **Marks/Grades:** Schema (`Exam`/`Mark`) + API built and tested. *(No dedicated Marks UI yet beyond `AdminResourcePage`'s basic create/list.)*
+### Phase 4: Content & Assessments (🔴 TODO)
+- [ ] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
+- [ ] **Study Materials UI:** A drive-like interface for organizing class notes.
+- [ ] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
+- [ ] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks).
+- [ ] **Marks/Grades:** Build the schema, API, and UI for recording exam/test scores.
 
 ### Phase 5: Role-Specific Dashboards (🔴 TODO)
 - [ ] **Teacher Dashboard:** Restrict views so teachers only see students in batches they are assigned to via `BatchSubjectTeacher`.
@@ -85,7 +85,7 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 ---
 
 ## 5. AI Agent Onboarding Prompt (For New Contributors)
-*Copy and paste the prompt below into your local AI agent (Cursor, Windsurf, GitHub Copilot, or standard LLM) immediately after cloning the repository. Fill in the assigned task at the very bottom.*
+*Copy and paste the prompt below into your local AI agent (Cursor, Windsurf, GitHub Copilot, Cline, or standard LLM) immediately after cloning the repository. Fill in the assigned task at the very bottom.*
 
 ```text
 You are an expert AI coding assistant. I have just cloned the `Prabodha` repository. You will be helping me implement a new feature or fix a bug, but I am the ultimate decision-maker for all code changes.
@@ -97,18 +97,20 @@ Please execute the following onboarding steps precisely:
    - If there is no `.env` file, copy `.env.example` to `.env`.
    - Run `npx prisma generate` and `npx prisma db push` (or `migrate dev`) to prepare the local SQLite database.
 
-2. **Context Gathering:**
-   - Read the `ROADMAP.md` file in the root directory to understand the product vision, tech stack, and overall project status.
-   - Analyze `prisma/schema.prisma` to understand the database architecture and how tables relate via `instituteId`.
-   - Briefly review the App Router structure in `src/app/` and the shared utilities in `src/lib/`.
+2. **Mandatory Context Gathering (Read Before Writing Code):**
+   - Read `agent.md` in the root directory for master architectural rules, coding standards, and multi-tenant invariants.
+   - Read `ROADMAP.md` to understand what phases are completed vs in progress.
+   - Read `TASKS.md` to see the detailed technical specifications and API shapes for contributor tasks.
+   - Read `LOG.md` to see recent development history and structural decisions from previous sessions.
+   - Analyze `prisma/schema.prisma` to understand database models and how every table maps via `instituteId`.
 
-3. **Workflow Compliance (Mandatory):**
-   - You MUST create an `implementation_plan.md` outlining what files you will touch and your technical approach. STOP and ask for my approval before modifying any source code.
-   - You MUST create a `task.md` checklist of the sub-tasks for today's assignment, updating it as we progress.
-   - You MUST create a `walkthrough.md` summarizing what we intend to do, and update it at the end of the session with what was actually accomplished.
-   - You MUST maintain a `LOG.md` detailing any structural decisions or bug fixes.
+3. **Workflow Compliance (Strictly Required):**
+   - You MUST create an `implementation_plan.md` outlining what files you will touch and your technical approach. STOP and get my approval before modifying any source code.
+   - You MUST create a `task.md` checklist of sub-tasks for today's assignment, updating it (`[ ]` → `[/]` → `[x]`) as we progress.
+   - You MUST create/update `walkthrough.md` summarizing what was accomplished.
+   - When finishing a task, run `npm run build` and `npm run lint` (zero errors required), then add a session log entry to `LOG.md` and update `ROADMAP.md` and `docs/api-reference.md`.
 
-Here is the specific task assigned to me today:
-[PASTE ASSIGNED TASK HERE]
+Here is the specific task from TASKS.md assigned to me today:
+[PASTE TASK SPECIFICATION FROM TASKS.MD HERE, e.g., "Task A: Attendance API"]
 ```
 

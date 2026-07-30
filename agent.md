@@ -6,7 +6,13 @@ Prabodha is a **lightweight, multi-tenant Institution Management Platform** with
 
 Four user roles exist: **Admin**, **Teacher**, **Student**, **Parent** — every operation is scoped to a single institute via `instituteId`.
 
-**Current status:** V1 is in active development. The core scaffold (auth, Prisma schema, dashboard shell, API route patterns) is in place. Next build targets are faculty/learner management screens, batch/section management, subject management, and the attendance workflow.
+**Current status:** V1 is in active development. 
+- **Completed (Phase 1 & 2):** Core scaffold, RBAC auth (`/login`, JWT, auth guard, logout), database models (Prisma + PostgreSQL/SQLite), faculty/learner/parent directory management (`DirectoryPage`, `ParentsPage`, soft/hard deletes), batch/section/subject management, password initialization, and core dashboard wiring.
+- **Active Build Targets (Phases 3–7):** 
+  - **Academic Operations:** Attendance API & UI (Sessions/Records), Timetable weekly grid enhancements.
+  - **Content & Assessments:** Study Materials API & UI, Homework UI (API done at `/api/assignments`), Marks/Grades schema & API & UI.
+  - **Role Dashboards & Production:** Teacher/Student/Parent tailored dashboard views, loading states, PostgreSQL migration, VPS deployment.
+  - Check `ROADMAP.md` and `TASKS.md` for contributor task specifications.
 
 ---
 

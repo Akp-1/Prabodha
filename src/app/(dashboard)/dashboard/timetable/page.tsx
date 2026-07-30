@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CalendarPlus, Clock3, MapPin, X } from 'lucide-react';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';

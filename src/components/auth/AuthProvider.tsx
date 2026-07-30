@@ -1,73 +1,166 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { apiFetch, getStoredToken, setStoredToken, ApiClientError } from '@/lib/api-client';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { getToken, setToken, clearToken, ApiClientError } from '@/lib/api-client';
+
+// Re-export so existing imports from '@/components/auth/AuthProvider' keep working.
+export { ApiClientError };
+
+// ── Types ──────────────────────────────────────────────────────────
 
 export type AuthUser = {
-    id: string;
-    name: string;
-    email: string;
-    role: 'admin' | 'teacher' | 'student' | 'parent';
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'teacher' | 'student' | 'parent';
 };
 
-type LoginResponse = { token: string; user: AuthUser };
+/** Alias kept for backward-compat with PR-2 callers. */
+export type UserProfile = AuthUser;
 
-type AuthContextValue = {
-    user: AuthUser | null;
-    /** True while we're checking localStorage for an existing session on first load. */
-    isLoading: boolean;
-    login: (instituteSlug: string, email: string, password: string) => Promise<void>;
-    logout: () => void;
-};
+export interface InstituteProfile {
+  id: string;
+  name: string;
+  slug: string;
+}
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+interface AuthContextType {
+  user: AuthUser | null;
+  institute: InstituteProfile | null;
+  token: string | null;
+  /** Preferred name — matches contributor's AuthProvider API. */
+  loading: boolean;
+  /** Alias for `loading` — matches PR-2 callers. */
+  isLoading: boolean;
+  login: (credentials: { instituteSlug: string; email: string; password: string }) => Promise<void>;
+  logout: () => void;
+  refreshUser: () => Promise<void>;
+}
 
-const USER_STORAGE_KEY = 'prabodha-auth-user';
+// ── Context ────────────────────────────────────────────────────────
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+const LAST_SLUG_KEY = 'prabodha-last-institute-slug';
 
-    // Hydrate from localStorage once on mount — we don't verify the token
-    // against the server here (that happens naturally on the first real API
-    // call); this just restores the UI's idea of "who's logged in" instantly
-    // instead of flashing a logged-out state on every page refresh.
-    useEffect(() => {
-        const token = getStoredToken();
-        const rawUser = typeof window !== 'undefined' ? window.localStorage.getItem(USER_STORAGE_KEY) : null;
-        if (token && rawUser) {
-            try {
-                setUser(JSON.parse(rawUser));
-            } catch {
-                setStoredToken(null);
-            }
-        }
-        setIsLoading(false);
-    }, []);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-    async function login(instituteSlug: string, email: string, password: string) {
-        const data = await apiFetch<LoginResponse>('/api/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ instituteSlug, email, password }),
-        });
-        setStoredToken(data.token);
-        window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
-        setUser(data.user);
-    }
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [institute, setInstitute] = useState<InstituteProfile | null>(null);
+  const [tokenState, setTokenState] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const router = useRouter();
 
-    function logout() {
-        setStoredToken(null);
-        window.localStorage.removeItem(USER_STORAGE_KEY);
+  // Validate the stored JWT against the server and populate user + institute.
+  const fetchMe = useCallback(async (authToken: string): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (!response.ok) {
+        clearToken();
+        setTokenState(null);
         setUser(null);
+        setInstitute(null);
+        return false;
+      }
+
+      const data = await response.json();
+      setUser(data.user);
+      setInstitute(data.institute ?? null);
+      setTokenState(authToken);
+      return true;
+    } catch {
+      clearToken();
+      setTokenState(null);
+      setUser(null);
+      setInstitute(null);
+      return false;
+    }
+  }, []);
+
+  // On mount, check for an existing JWT and validate it.
+  useEffect(() => {
+    const existingToken = getToken();
+    if (existingToken) {
+      fetchMe(existingToken).finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [fetchMe]);
+
+  const login = async ({
+    instituteSlug,
+    email,
+    password,
+  }: {
+    instituteSlug: string;
+    email: string;
+    password: string;
+  }) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instituteSlug, email, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Login failed');
     }
 
-    return <AuthContext.Provider value={{ user, isLoading, login, logout }}>{children}</AuthContext.Provider>;
+    setToken(data.token);
+    setTokenState(data.token);
+
+    // Remember the slug for convenience on the next visit.
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LAST_SLUG_KEY, instituteSlug);
+    }
+
+    setUser(data.user);
+    // Fetch full profile (includes institute details from /api/auth/me).
+    await fetchMe(data.token);
+    router.push('/dashboard');
+  };
+
+  const logout = () => {
+    clearToken();
+    setTokenState(null);
+    setUser(null);
+    setInstitute(null);
+    router.push('/login');
+  };
+
+  const refreshUser = async () => {
+    const currentToken = getToken();
+    if (currentToken) {
+      await fetchMe(currentToken);
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        institute,
+        token: tokenState,
+        loading,
+        isLoading: loading,
+        login,
+        logout,
+        refreshUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-export function useAuth(): AuthContextValue {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
-    return ctx;
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
-
-export { ApiClientError };

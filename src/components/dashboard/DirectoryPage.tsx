@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, UserRound, X } from 'lucide-react';
+import { Eye, EyeOff, Plus, Search, UserRound, X } from 'lucide-react';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 
 export type DirectoryRecord = {
@@ -54,12 +54,11 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('Welcome@123');
+  const [showPassword, setShowPassword] = useState(false);
   const [detail, setDetail] = useState(''); // qualification (Faculty) or batchId (Learners)
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const batchNameById = useMemo(() => new Map(batches.map((b) => [b.id, b.name])), [batches]);
 
   async function loadRecords() {
     setIsLoading(true);
@@ -114,7 +113,8 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
   const resetForm = () => {
     setName('');
     setEmail('');
-    setPassword('');
+    setPassword('Welcome@123');
+    setShowPassword(false);
     setDetail('');
     setFormError(null);
     setShowForm(false);
@@ -123,17 +123,24 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
   const addRecord = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
+
+    const trimmedPassword = password.trim();
+    if (trimmedPassword.length < 8) {
+      setFormError('Password must be at least 8 characters.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (kind === 'Faculty') {
         await apiFetch('/api/teachers', {
           method: 'POST',
-          body: JSON.stringify({ name: name.trim(), email: email.trim(), password, qualification: detail.trim() || undefined }),
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), password: trimmedPassword, qualification: detail.trim() || undefined }),
         });
       } else {
         await apiFetch('/api/students', {
           method: 'POST',
-          body: JSON.stringify({ name: name.trim(), email: email.trim(), password, batchId: detail || undefined }),
+          body: JSON.stringify({ name: name.trim(), email: email.trim(), password: trimmedPassword, batchId: detail || undefined }),
         });
       }
       resetForm();
@@ -193,7 +200,12 @@ export function DirectoryPage({ kind, description, addLabel, detailLabel, detail
             <form onSubmit={addRecord} className="space-y-4">
               <label className="block text-sm font-semibold text-ink">Full name<input required value={name} onChange={(event) => setName(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" placeholder="Enter full name" /></label>
               <label className="block text-sm font-semibold text-ink">Email address<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" placeholder="name@example.com" /></label>
-              <label className="block text-sm font-semibold text-ink">Password<input required type="password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" placeholder="At least 8 characters" /></label>
+              <label className="block text-sm font-semibold text-ink">Initial password
+                <span className="relative block">
+                  <input required minLength={8} type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 pr-10 font-normal outline-none focus:border-pine" placeholder="Min. 8 characters" />
+                  <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-ink" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
+                </span>
+              </label>
               {kind === 'Learners' ? (
                   <label className="block text-sm font-semibold text-ink">{detailLabel}
                     <select value={detail} onChange={(event) => setDetail(event.target.value)} className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine bg-white">
