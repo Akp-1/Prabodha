@@ -654,6 +654,60 @@ UI, and a documentation-debt correction pass
 - Parent access to Materials + Homework (needs `ParentStudentLink` resolution)
 - Remaining ROADMAP items: Marks UI, all of Phase 5
 
+## Session 17 — Parents admin UI; Homework per-student grading + Parent view
+
+**Context:** Picked up Phase 4 "Homework UI" from ROADMAP.md, but discovered
+a collaborator had already shipped a working Homework UI (assign + student
+self-service toggle) in the interim, via commits pulled from upstream
+(`fc16a5a`, `6958f83`, `596432e`). Re-scoped the session around the actual
+gaps rather than duplicating that work.
+
+**What shipped:**
+1. **Parents admin UI** — previously there was no way to create a parent
+   login or link it to a student anywhere in the UI (only a raw call to
+   `/api/auth/create-user` supported `role: 'parent'`, and `/api/parent-links`
+   existed but had no frontend). Added:
+  - `/api/parents` + `/api/parents/[id]` — full CRUD, mirrors the Teachers
+    API pattern (soft-delete via `isActive`).
+  - `/dashboard/parents` — admin page combining account creation and
+    parent→student linking (reuses existing `/api/parent-links`).
+2. **Homework: per-student grading (teacher) + Parent view** — the existing
+   Homework UI let teachers see an aggregate completed/total count but had
+   no way to grade an individual student, and had no Parent-facing view at
+   all (the API didn't even allow the `parent` role).
+  - Extended `homework/route.ts` and `homework/[id]/route.ts` with a parent
+    scope, resolved via `ParentStudentLink` (same shape as the student's own
+    batch-scope lookup).
+  - Extended `homework/page.tsx`: teacher rows are now expandable, showing a
+    per-student grid of toggle pills (reuses the existing `PATCH .../statuses`
+    endpoint — no new backend logic needed for the toggle itself, just
+    backend read-access to reach it). Parent view shows the linked child's
+    homework read-only, attributed by name.
+
+**Bugs fixed along the way (from before this feature work):**
+- `attendance/page.tsx`: `useMemo` for `monthlyStats` had a missing
+  `now` dependency; fixed by hoisting `currentMonth`/`currentYear` as
+  primitives before the memo, rather than depending on the `Date` object
+  itself (which would've forced a recompute every render).
+- `attendance/route.ts`: `summarize()`'s parameter type only declared
+  `{ status: string }` on records, which silently narrowed away
+  `studentId` from the return type, breaking `hideOthersRecords()`
+  downstream — same shape as the earlier Exams `summarize`/`hideOthersMarks`
+  bug. Fixed by widening the annotation to include `studentId`.
+
+**Repo/workflow note:** confirmed this is a fork (`origin`) tracking
+`Neeraj-Ch0udhary/Prabodha` as `upstream` — `git push origin main` only
+updates the fork, not upstream directly; collaboration with the repo owner
+happens via `upstream`/PR, not direct push. Also noted `npx prisma generate`
+can't run in fully offline/restricted-network sandboxes (needs
+`binaries.prisma.sh`), so full `next build` verification for AI-assisted
+patches in such environments should always be re-confirmed locally.
+
+**Verification:** `npm run lint` and `npm run build` both clean after each
+patch. Manually tested all four roles end-to-end on `/dashboard/parents`
+and `/dashboard/homework`.
+
+
 <!-- Future sessions: copy the template below -->
 <!--
 ## Session N — YYYY-MM-DD

@@ -26,7 +26,7 @@ const NAV_ITEMS: { key: string; label: string; href: string; icon: LucideIcon; r
   { key: 'subjects', label: 'Subjects', href: '/dashboard/subjects', icon: BookOpen, roles: ['admin'] },
   { key: 'timetable', label: 'Timetable', href: '/dashboard/timetable', icon: Calendar, roles: ['admin', 'teacher'] },
   { key: 'attendance', label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher', 'student'] },
-  { key: 'materials', label: 'Materials', href: '/dashboard/materials', icon: FileText, roles: ['admin', 'teacher', 'student'] },
+  { key: 'materials', label: 'Materials', href: '/dashboard/materials', icon: FileText, roles: ['admin', 'teacher', 'student', 'parent'] },
   { key: 'homework', label: 'Homework', href: '/dashboard/homework', icon: BookMarked, roles: ['admin', 'teacher', 'student', 'parent'] },
   { key: 'marks', label: 'Marks', href: '/dashboard/marks', icon: Award, roles: ['admin', 'teacher', 'student'] },
   { key: 'settings', label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['admin'] },

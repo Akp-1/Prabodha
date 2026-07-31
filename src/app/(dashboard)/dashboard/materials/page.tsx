@@ -23,6 +23,8 @@ type Material = {
 
 type Batch = { id: string; name: string };
 type Subject = { id: string; name: string };
+type Assignment = { id: string; batch: { id: string; name: string }; subject: { id: string; name: string } };
+type ParentLink = { student: { id: string; name: string; batchId: string | null } };
 
 const TYPE_ICON: Record<MaterialType, typeof FileText> = {
   note: StickyNote,
@@ -34,6 +36,8 @@ const TYPE_ICON: Record<MaterialType, typeof FileText> = {
 export default function MaterialsPage() {
   const { user } = useAuth();
   const canManage = user?.role === 'admin' || user?.role === 'teacher';
+  const isTeacher = user?.role === 'teacher';
+  const isParent = user?.role === 'parent';
 
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,12 +49,16 @@ export default function MaterialsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [batchOptions, setBatchOptions] = useState<Batch[]>([]);
   const [subjectOptions, setSubjectOptions] = useState<Subject[]>([]);
+  const [assignmentOptions, setAssignmentOptions] = useState<Assignment[]>([]);
 
   const [title, setTitle] = useState('');
   const [batchId, setBatchId] = useState('');
   const [subjectId, setSubjectId] = useState('');
+  const [assignmentId, setAssignmentId] = useState('');
   const [materialType, setMaterialType] = useState<MaterialType>('note');
   const [link, setLink] = useState('');
+
+  const [parentLinks, setParentLinks] = useState<ParentLink[]>([]);
 
   async function load() {
     setIsLoading(true);
@@ -73,17 +81,39 @@ export default function MaterialsPage() {
     if (!canManage) return;
     (async () => {
       try {
-        const [batches, subjects] = await Promise.all([
-          apiFetch<Batch[]>('/api/batches'),
-          apiFetch<Subject[]>('/api/subjects'),
-        ]);
-        setBatchOptions(batches);
-        setSubjectOptions(subjects);
+        if (isTeacher) {
+          // Scoped to only what this teacher is currently assigned to teach —
+          // matches the pattern used in Attendance/Homework's teacher forms,
+          // instead of letting them pick any batch/subject and finding out
+          // they're not assigned only at submit time.
+          const assignments = await apiFetch<Assignment[]>('/api/assignments');
+          setAssignmentOptions(assignments);
+          if (assignments.length) setAssignmentId(assignments[0].id);
+        } else {
+          const [batches, subjects] = await Promise.all([
+            apiFetch<Batch[]>('/api/batches'),
+            apiFetch<Subject[]>('/api/subjects'),
+          ]);
+          setBatchOptions(batches);
+          setSubjectOptions(subjects);
+        }
       } catch {
         // Non-fatal — pickers just render empty.
       }
     })();
-  }, [canManage]);
+  }, [canManage, isTeacher]);
+
+  useEffect(() => {
+    if (!isParent) return;
+    (async () => {
+      try {
+        const links = await apiFetch<ParentLink[]>('/api/parent-links');
+        setParentLinks(links);
+      } catch {
+        // Non-fatal — the list will just show batch/subject without a "for <child>" label.
+      }
+    })();
+  }, [isParent]);
 
   const filtered = materials.filter((m) => !query || m.title.toLowerCase().includes(query.toLowerCase()));
 
@@ -102,6 +132,7 @@ export default function MaterialsPage() {
     setTitle('');
     setBatchId('');
     setSubjectId('');
+    setAssignmentId(assignmentOptions[0]?.id ?? '');
     setMaterialType('note');
     setLink('');
     setFormError(null);
@@ -113,7 +144,19 @@ export default function MaterialsPage() {
     setFormError(null);
     setIsSubmitting(true);
     try {
-      const body: Record<string, unknown> = { batchId, subjectId, title: title.trim(), materialType };
+      let resolvedBatchId = batchId;
+      let resolvedSubjectId = subjectId;
+      if (isTeacher) {
+        const assignment = assignmentOptions.find((a) => a.id === assignmentId);
+        if (!assignment) {
+          setFormError('Select a class first.');
+          setIsSubmitting(false);
+          return;
+        }
+        resolvedBatchId = assignment.batch.id;
+        resolvedSubjectId = assignment.subject.id;
+      }
+      const body: Record<string, unknown> = { batchId: resolvedBatchId, subjectId: resolvedSubjectId, title: title.trim(), materialType };
       if (materialType === 'link') body.externalLink = link.trim();
       else body.fileUrl = link.trim();
       await apiFetch('/api/materials', { method: 'POST', body: JSON.stringify(body) });
@@ -149,7 +192,9 @@ export default function MaterialsPage() {
             <p className="text-ink-soft mt-2 max-w-[640px]">
               {canManage
                   ? 'Publish notes, documents, and links organized by subject.'
-                  : 'Notes, documents, and links your teachers have shared for your batch.'}
+                  : isParent
+                      ? "Notes, documents, and links your child's teachers have shared."
+                      : 'Notes, documents, and links your teachers have shared for your batch.'}
             </p>
           </div>
           {canManage && (
@@ -179,6 +224,7 @@ export default function MaterialsPage() {
                       {items.map((m) => {
                         const Icon = TYPE_ICON[m.materialType];
                         const canDelete = user?.role === 'admin' || m.uploader?.id === user?.id;
+                        const myChild = isParent ? parentLinks.find((l) => l.student.batchId === m.batch?.id)?.student : undefined;
                         return (
                             <div key={m.id} className="flex items-center justify-between gap-4 px-5 py-4">
                               <button onClick={() => openLink(m)} className="flex items-center gap-3 text-left min-w-0 flex-1 group">
@@ -189,6 +235,7 @@ export default function MaterialsPage() {
                                   <div className="font-semibold text-sm text-ink truncate group-hover:underline">{m.title}</div>
                                   <div className="text-xs text-ink-soft">
                                     {m.batch?.name ?? '—'} · {m.uploader?.name ?? 'Unknown'} · {m.materialType}
+                                    {isParent && myChild && <> · for {myChild.name}</>}
                                   </div>
                                 </div>
                               </button>
@@ -211,7 +258,7 @@ export default function MaterialsPage() {
             </div>
         ) : (
             <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">
-              {canManage ? 'No materials published yet.' : 'No study materials have been shared for your batch yet.'}
+              {canManage ? 'No materials published yet.' : isParent ? "No study materials have been shared for your child's batch yet." : 'No study materials have been shared for your batch yet.'}
             </div>
         )}
 
@@ -230,22 +277,40 @@ export default function MaterialsPage() {
                     Title
                     <input required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Thermodynamics notes" className="mt-1.5 w-full rounded-md border border-line px-3 py-2.5 font-normal outline-none focus:border-pine" />
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <label className="block text-sm font-semibold text-ink">
-                      Batch
-                      <select required value={batchId} onChange={(e) => setBatchId(e.target.value)} className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-pine">
-                        <option value="" disabled>Select batch</option>
-                        {batchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="block text-sm font-semibold text-ink">
-                      Subject
-                      <select required value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-pine">
-                        <option value="" disabled>Select subject</option>
-                        {subjectOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                      </select>
-                    </label>
-                  </div>
+                  {isTeacher ? (
+                      <label className="block text-sm font-semibold text-ink">
+                        Class
+                        <select
+                            required
+                            value={assignmentId}
+                            onChange={(e) => setAssignmentId(e.target.value)}
+                            disabled={!assignmentOptions.length}
+                            className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-pine"
+                        >
+                          {!assignmentOptions.length && <option>No assigned classes</option>}
+                          {assignmentOptions.map((a) => (
+                              <option key={a.id} value={a.id}>{a.batch.name} · {a.subject.name}</option>
+                          ))}
+                        </select>
+                      </label>
+                  ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className="block text-sm font-semibold text-ink">
+                          Batch
+                          <select required value={batchId} onChange={(e) => setBatchId(e.target.value)} className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-pine">
+                            <option value="" disabled>Select batch</option>
+                            {batchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="block text-sm font-semibold text-ink">
+                          Subject
+                          <select required value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-pine">
+                            <option value="" disabled>Select subject</option>
+                            {subjectOptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                  )}
                   <label className="block text-sm font-semibold text-ink">
                     Type
                     <select value={materialType} onChange={(e) => setMaterialType(e.target.value as MaterialType)} className="mt-1.5 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-pine">
