@@ -43,37 +43,42 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Batches API:** CRUD operations + bulk student assignment.
 - [x] **Subjects API:** CRUD operations.
 
-### Phase 2: Core Entity APIs & UI Wiring (🟡 IN PROGRESS)
-- [ ] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
-- [ ] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
-- [ ] **Parent-Student Linking:** API to link parent accounts to student profiles.
-- [ ] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
-  - [ ] `DirectoryPage` (Teachers/Students lists)
-  - [ ] `AdminResourcePage` (Batches/Subjects management)
+### Phase 2: Core Entity APIs & UI Wiring (✅ COMPLETED)
+- [x] **Teachers API:** CRUD endpoints (ensure `isActive` soft-deletes).
+- [x] **Students API:** CRUD endpoints (ensure `isActive` soft-deletes).
+- [x] **Parent-Student Linking:** API to link parent accounts to student profiles.
+- [x] **Dashboard Wiring (Admin):** Replace `InstitutionStore` (localStorage mock) with `fetch()` calls to the real APIs in:
+  - [x] `DirectoryPage` (Teachers/Students lists)
+  - [x] `AdminResourcePage` (Batches/Subjects management)
 
-### Phase 3: Academic Operations (🔴 TODO)
-- [ ] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
-- [ ] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them.
-- [ ] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
-- [ ] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class.
+### Phase 3: Academic Operations (✅ COMPLETED)
+- [x] **Timetable API:** Endpoints to manage `TimetableSlot` (linking Batches, Subjects, Teachers, and Times).
+- [x] **Timetable UI:** A visual calendar/grid view for Admins to create schedules and Teachers/Students to view them.
+- [x] **Attendance API:** Endpoints for teachers to create an `AttendanceSession` and mark `AttendanceRecord` statuses.
+- [x] **Attendance UI:** A specialized, fast-input UI for teachers to mark attendance in class.
 
-### Phase 4: Content & Assessments (🔴 TODO)
-- [ ] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
-- [ ] **Study Materials UI:** A drive-like interface for organizing class notes.
-- [ ] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
-- [ ] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks).
-- [ ] **Marks/Grades:** Build the schema, API, and UI for recording exam/test scores.
+### Phase 4: Content & Assessments (✅ COMPLETED)
+- [x] **Study Materials API:** Uploading and retrieving links/PDFs mapped to specific Batches & Subjects.
+- [x] **Study Materials UI:** A drive-like interface for organizing class notes.
+- [x] **Homework API:** Endpoints to assign homework and track `HomeworkStatus` per student.
+- [x] **Homework UI:** Teacher view (to assign/grade) and Student/Parent view (to see pending tasks).
+- [x] **Marks/Grades:** Build the schema, API, and UI for recording exam/test scores.
 
-### Phase 5: Role-Specific Dashboards (🔴 TODO)
-- [ ] **Teacher Dashboard:** Restrict views so teachers only see students in batches they are assigned to via `BatchSubjectTeacher`.
-- [ ] **Student Dashboard:** Read-only views of their specific timetable, homework, and study materials.
-- [ ] **Parent Dashboard:** Read-only summary of linked students' attendance, homework status, and marks.
+### Phase 5: Role-Specific Dashboards (✅ COMPLETED)
+- [x] **Teacher Dashboard:** Restrict views so teachers only see students in batches they are assigned to via `BatchSubjectTeacher`.
+- [x] **Student Dashboard:** Read-only views of their specific timetable, homework, and study materials.
+- [x] **Parent Dashboard:** Read-only summary of linked students' attendance, homework status, and marks.
+  - [x] Backend API (`GET /api/parent-dashboard`) — aggregates attendance, homework, marks per child.
+  - [x] Attendance Ring (SVG, animated, color-coded, shows present/total sessions).
+  - [x] Homework Progress Bar (completed/total with pending count).
+  - [x] Recent Marks Table (last 5 exams, color-coded percentages).
+  - [x] Loading skeletons + "no children linked" empty state.
 
-### Phase 6: Polish & Production Readiness (🔴 TODO)
+### Phase 6: Polish & Production Readiness (🟡 IN PROGRESS)
 - [ ] **Error Handling:** Ensure API errors gracefully display as toast notifications in the UI.
 - [ ] **Loading States:** Add Skeleton loaders for all data-fetching components.
 - [ ] **Database Migration:** Switch Prisma `provider` from SQLite to PostgreSQL.
-- [ ] **Seed Script:** Ensure the production database has an initial "super admin" or is ready for the first institute registration.
+- [x] **Seed Script:** Rich demo dataset (30 students, 3 batches, attendance/homework/marks, 2 parent accounts with links). Ready for both dev testing and production bootstrapping.
 
 ### Phase 7: Deployment (🔴 TODO)
 - [ ] **VPS Provisioning:** Setup Ubuntu server, Node.js, PM2, and Nginx.

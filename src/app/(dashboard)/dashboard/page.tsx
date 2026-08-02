@@ -184,17 +184,147 @@ function StudentHome() {
     );
 }
 
+interface ChildData {
+    student: { id: string; name: string; email: string; batch: { id: string; name: string } | null };
+    attendance: { total: number; present: number; absent: number; percentage: number };
+    homework: { total: number; completed: number; pending: number };
+    marks: { examName: string; subject: string; obtained: number; maxMarks: number; date: string }[];
+}
+
+function AttendanceRing({ percentage, present, total }: { percentage: number; present: number; total: number }) {
+    const radius = 36;
+    const stroke = 6;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (percentage / 100) * circumference;
+    const color = percentage >= 75 ? '#2D6A4F' : percentage >= 50 ? '#E9A94A' : '#D64045';
+
+    return (
+        <div className="flex flex-col items-center gap-1.5">
+            <svg width={90} height={90} className="-rotate-90">
+                <circle cx={45} cy={45} r={radius} fill="none" stroke="#E8E0D4" strokeWidth={stroke} />
+                <circle cx={45} cy={45} r={radius} fill="none" stroke={color} strokeWidth={stroke}
+                    strokeDasharray={circumference} strokeDashoffset={offset}
+                    strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
+            </svg>
+            <span className="font-display font-semibold text-lg text-ink" style={{ marginTop: -60 }}>{percentage}%</span>
+            <span className="text-[11px] text-ink-soft font-medium mt-6">{present}/{total} sessions</span>
+        </div>
+    );
+}
+
+function HomeworkBar({ completed, total }: { completed: number; total: number }) {
+    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return (
+        <div className="flex-1">
+            <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="text-ink-soft font-medium">Homework</span>
+                <span className="font-semibold text-ink">{completed}/{total}</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#E8E0D4] overflow-hidden">
+                <div className="h-full rounded-full bg-pine transition-all duration-500" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="text-[11px] text-ink-soft mt-1">{total - completed} pending</div>
+        </div>
+    );
+}
+
 function ParentHome() {
+    const [children, setChildren] = useState<ChildData[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const data = await apiFetch<ChildData[]>('/api/parent-dashboard');
+                setChildren(data);
+            } catch (err) {
+                setError(err instanceof ApiClientError ? err.message : 'Failed to load dashboard.');
+            } finally {
+                setIsLoading(false);
+            }
+        })();
+    }, []);
+
     return (
         <>
             <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Welcome back</div>
-            <h1 className="font-display font-semibold text-[32px] tracking-tight mb-[18px]">Parent dashboard</h1>
-            <div className="max-w-[560px] rounded-xl border border-line bg-white px-6 py-8 text-sm text-ink-soft">
-                A dedicated view of your linked children&apos;s homework, materials, and marks
-                hasn&apos;t been built yet — this is tracked as an open item on the project
-                roadmap. Reach out to your institute admin in the meantime for anything
-                you need.
-            </div>
+            <h1 className="font-display font-semibold text-[32px] tracking-tight mb-[30px]">Parent dashboard</h1>
+
+            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
+
+            {isLoading ? (
+                <div className="max-w-[720px] space-y-4">
+                    {[1, 2].map((i) => (
+                        <div key={i} className="bg-white border border-line rounded-xl h-[200px] animate-pulse" />
+                    ))}
+                </div>
+            ) : children.length === 0 ? (
+                <div className="max-w-[560px] rounded-xl border border-line bg-white px-6 py-8 text-sm text-ink-soft">
+                    No children have been linked to your account yet. Please ask your institute admin to link your child&apos;s profile to your parent account.
+                </div>
+            ) : (
+                <div className="space-y-6 max-w-[820px]">
+                    {children.map((child) => (
+                        <div key={child.student.id} className="bg-white border border-line rounded-xl overflow-hidden">
+                            {/* Header */}
+                            <div className="flex items-center gap-3 px-6 py-4 border-b border-line bg-paper">
+                                <div className="w-9 h-9 rounded-full bg-pine flex items-center justify-center text-white font-semibold text-sm">
+                                    {child.student.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <div className="font-display font-semibold text-[17px] text-ink">{child.student.name}</div>
+                                    <div className="text-[12px] text-ink-soft">{child.student.batch?.name ?? 'No batch assigned'}</div>
+                                </div>
+                            </div>
+
+                            {/* Stats row */}
+                            <div className="flex items-start gap-8 px-6 py-5">
+                                <AttendanceRing percentage={child.attendance.percentage} present={child.attendance.present} total={child.attendance.total} />
+                                <HomeworkBar completed={child.homework.completed} total={child.homework.total} />
+                                <div className="text-center">
+                                    <div className="font-display font-semibold text-[28px] text-ink">{child.marks.length}</div>
+                                    <div className="text-[11px] text-ink-soft font-medium">Exams Graded</div>
+                                </div>
+                            </div>
+
+                            {/* Recent marks */}
+                            {child.marks.length > 0 && (
+                                <div className="px-6 pb-5">
+                                    <div className="text-xs font-semibold text-ink-soft uppercase tracking-wider mb-2">Recent Marks</div>
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b border-line text-left text-ink-soft text-xs">
+                                                <th className="pb-1.5 font-medium">Exam</th>
+                                                <th className="pb-1.5 font-medium">Subject</th>
+                                                <th className="pb-1.5 font-medium text-right">Score</th>
+                                                <th className="pb-1.5 font-medium text-right">%</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {child.marks.map((m, i) => {
+                                                const pct = Math.round((m.obtained / m.maxMarks) * 100);
+                                                return (
+                                                    <tr key={i} className="border-b border-line/50 last:border-0">
+                                                        <td className="py-2 text-ink">{m.examName}</td>
+                                                        <td className="py-2 text-ink-soft">{m.subject}</td>
+                                                        <td className="py-2 text-right font-medium text-ink">{m.obtained}/{m.maxMarks}</td>
+                                                        <td className="py-2 text-right">
+                                                            <span className={`font-semibold ${pct >= 75 ? 'text-pine' : pct >= 50 ? 'text-saffron-deep' : 'text-red-500'}`}>
+                                                                {pct}%
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
         </>
     );
 }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request: NextRequest) => {
   const user = requireAuth(request);
-  
+
   const subjects = await prisma.subject.findMany({
     where: { instituteId: user.instituteId },
     orderBy: { name: 'asc' }
