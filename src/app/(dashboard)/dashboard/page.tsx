@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, GraduationCap, Layers, Calendar, BookMarked, Award, ClipboardCheck } from 'lucide-react';
+import { Users, GraduationCap, Layers, Calendar, BookMarked, Award, ClipboardCheck, Check } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -11,8 +11,16 @@ function todayDayOfWeek() {
     return new Date().getDay();
 }
 
+const INITIAL_CHECKLIST = [
+  { key: 'batch', label: 'Create your first batch or section', done: false },
+  { key: 'teachers', label: 'Add faculty members', done: false },
+  { key: 'students', label: 'Enroll learners', done: false },
+  { key: 'attendance', label: "Record today's attendance", done: false },
+];
+
 function AdminHome() {
     const [stats, setStats] = useState({ students: 0, teachers: 0, batches: 0, todaySessions: 0 });
+    const [checklist, setChecklist] = useState(INITIAL_CHECKLIST);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +39,15 @@ function AdminHome() {
                     batches: batches.length,
                     todaySessions: slots.filter((s) => s.dayOfWeek === todayDayOfWeek()).length,
                 });
+                // Auto-check checklist items based on real data
+                setChecklist((list) =>
+                  list.map((item) => {
+                    if (item.key === 'batch' && batches.length > 0) return { ...item, done: true };
+                    if (item.key === 'teachers' && teachers.length > 0) return { ...item, done: true };
+                    if (item.key === 'students' && students.length > 0) return { ...item, done: true };
+                    return item;
+                  })
+                );
             } catch (err) {
                 setError(err instanceof ApiClientError ? err.message : 'Failed to load institute stats.');
             } finally {
@@ -38,6 +55,10 @@ function AdminHome() {
             }
         })();
     }, []);
+
+    const toggle = (key: string) => {
+      setChecklist((list) => list.map((item) => (item.key === key ? { ...item, done: !item.done } : item)));
+    };
 
     return (
         <>
@@ -51,6 +72,29 @@ function AdminHome() {
                 <StatCard label="Faculty Members" value={isLoading ? '…' : stats.teachers} icon={GraduationCap} />
                 <StatCard label="Active Batches" value={isLoading ? '…' : stats.batches} icon={Layers} />
                 <StatCard label="Today's Sessions" value={isLoading ? '…' : stats.todaySessions} icon={Calendar} />
+            </div>
+
+            {/* Getting Started checklist (from contributor) */}
+            <div className="bg-white border border-line rounded-xl px-8 py-[30px] max-w-[720px]">
+              <div className="font-display font-semibold text-[21px] mb-[18px]">Getting started</div>
+              <div className="flex flex-col gap-1">
+                {checklist.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => toggle(item.key)}
+                    className="flex items-center gap-3 py-[11px] px-1.5 rounded-lg text-left w-full text-[15px] hover:bg-paper transition-colors"
+                  >
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border ${
+                        item.done ? 'bg-saffron border-saffron' : 'border-line'
+                      }`}
+                    >
+                      {item.done && <Check size={13} strokeWidth={3} className="text-pine-deep" />}
+                    </span>
+                    <span className={item.done ? 'text-ink-soft line-through' : 'text-ink'}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
         </>
     );

@@ -5,7 +5,6 @@ import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-// Mirrors src/app/api/teachers/[id]/route.ts.
 const safeSelect = {
     id: true,
     instituteId: true,
@@ -15,6 +14,14 @@ const safeSelect = {
     phone: true,
     isActive: true,
     createdAt: true,
+    parentLinksAsParent: {
+        select: {
+            id: true,
+            student: {
+                select: { id: true, name: true, email: true, batchId: true },
+            },
+        },
+    },
 };
 
 async function findParent(id: string, instituteId: string) {
@@ -60,9 +67,8 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
     return NextResponse.json(parent);
 });
 
-// Soft-delete: flips isActive to false rather than removing the row, so
-// existing ParentStudentLink rows (and any historical references) stay
-// intact — same reasoning as Teachers/Students.
+// Soft-delete: flips isActive to false. The parent's links remain intact
+// so historical data (homework status views etc.) stays consistent.
 export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');

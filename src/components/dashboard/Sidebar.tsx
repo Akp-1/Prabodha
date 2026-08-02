@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  LayoutGrid, Users, GraduationCap, Layers, BookOpen, Calendar,
-  ClipboardCheck, FileText, BookMarked, Award, Settings, UsersRound, type LucideIcon,
+  LayoutGrid, Users, GraduationCap, UsersRound, Layers, BookOpen, Calendar,
+  ClipboardCheck, FileText, BookMarked, Award, Settings, type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';

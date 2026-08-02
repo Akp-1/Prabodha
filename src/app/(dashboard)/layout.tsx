@@ -1,29 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { InstitutionStore } from '@/components/dashboard/InstitutionStore';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { Loader2 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !user) router.replace('/login');
-  }, [isLoading, user, router]);
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
 
-  // Avoid flashing the dashboard (and its fake data) before we've confirmed
-  // there's actually a logged-in user.
-  if (isLoading || !user) {
+  if (loading) {
     return (
-        <div className="flex h-screen w-full items-center justify-center bg-paper text-ink-soft text-sm">
-          Loading…
+      <div className="flex h-screen w-full items-center justify-center bg-paper text-ink-soft">
+        <div className="flex items-center gap-3">
+          <Loader2 size={24} className="animate-spin text-pine" />
+          <span className="font-medium text-sm">Authenticating...</span>
         </div>
+      </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (

@@ -6,11 +6,6 @@ import { apiHandler, requireAuth, requireRole } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-// Mirrors src/app/api/teachers/route.ts's shape exactly — same CRUD pattern
-// for a "person" resource, minus the teacher-only fields (qualification,
-// experienceYears). Parents were previously only creatable via the generic
-// /api/auth/create-user endpoint with no dedicated list/detail API — this
-// gives them the same first-class treatment as Teachers/Students.
 const safeSelect = {
     id: true,
     instituteId: true,
@@ -20,6 +15,14 @@ const safeSelect = {
     phone: true,
     isActive: true,
     createdAt: true,
+    parentLinksAsParent: {
+        select: {
+            id: true,
+            student: {
+                select: { id: true, name: true, email: true, batchId: true },
+            },
+        },
+    },
 };
 
 export const GET = apiHandler(async (request: NextRequest) => {
