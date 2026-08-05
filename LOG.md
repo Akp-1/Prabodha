@@ -807,6 +807,92 @@ UI, and a documentation-debt correction pass
 
 ---
 
+## Session 11 — 2026-08-01
+
+**Focus:** Technical Report Generation
+
+### What was done
+- Generated a comprehensive technical report (`docs/technical-report.md`) covering:
+  - Executive Summary with internship context (Class 11 CS Teacher + Web Dev, May 8 – present)
+  - System Architecture with Mermaid diagrams
+  - Database Analysis with full ER diagram from Prisma schema
+  - Complete API Documentation for all 14 API resource groups
+  - System Design Interview Q&A (mentor prep)
+  - Scalability, Security, and Deployment strategy sections
+  - Technology Stack rationale
+- Updated `ROADMAP.md` to reflect completion of Phases 1–5
+
+### Verification
+- `npm run build` → ✅ passed (zero TypeScript errors)
+
+### Key decisions
+- Report written in Markdown for portability — can be converted to PDF via VS Code extensions
+- Internship narrative woven into executive summary for authenticity
+
+---
+
+## Session 12 — 2026-08-02
+
+**Focus:** Parent Dashboard (API + UI) + Rich Seed Script
+
+### What was done
+
+#### Sub-task 1: Parent Dashboard API
+- Created `src/app/api/parent-dashboard/route.ts` — a new GET endpoint accessible only
+  by `parent` role users. Aggregates all linked children's academic data server-side:
+  - Finds linked students via `ParentStudentLink`
+  - Queries `AttendanceRecord` for present/absent counts per student
+  - Queries `HomeworkStatus` for completed/pending counts per student
+  - Queries `Mark` + `Exam` for the 5 most recent graded exams per student
+  - Returns a consolidated JSON array with one entry per linked child
+
+#### Sub-task 2: Parent Dashboard UI
+- Replaced the placeholder `ParentHome` component in `src/app/(dashboard)/dashboard/page.tsx`
+  with a fully functional dashboard featuring:
+  - **Attendance Ring** — SVG circle with animated fill, color-coded (green ≥75%, yellow ≥50%,
+    red <50%), showing `present/total sessions` label
+  - **Homework Progress Bar** — completed/total with fill bar and pending count
+  - **Exams Graded** — count of graded assessments
+  - **Recent Marks Table** — last 5 exams with subject, score, and color-coded percentage
+  - Loading skeleton animation while data loads
+  - "No children linked" empty state message
+
+#### Sub-task 3: Attendance Ring Enhancement
+- Updated `AttendanceRing` component to accept `present` and `total` props
+- Changed label from generic "Attendance" to contextual "18/20 sessions"
+
+#### Sub-task 4: Rich Seed Script
+- Rewrote `prisma/seed.ts` to generate a comprehensive test dataset:
+  - 1 institute, 1 admin, 3 teachers, 3 batches, 5 subjects
+  - 30 students (10 per batch), 8 batch-subject-teacher assignments
+  - 21 timetable slots, 109 attendance sessions with 1090 records
+  - 21 homework assignments with completion statuses
+  - 22 exams with 220 individual marks
+  - 2 parent accounts with 4 parent-student links
+  - All passwords: `password123`
+
+### Verification
+- `npm run build` → ✅ passed (zero TypeScript errors, `/api/parent-dashboard` route visible)
+- `npm run db:seed` → ✅ all entities seeded successfully
+- Manually tested: logged in as `parent@prabodha.local`, confirmed attendance ring,
+  homework bar, and marks table all populated correctly with real data
+
+### Key decisions
+- Created a **dedicated** `/api/parent-dashboard` endpoint rather than modifying existing
+  APIs (homework, attendance, exams) to accept the parent role — keeps existing API
+  security boundaries untouched while giving parents exactly the aggregated view they need
+- Seed script uses realistic randomization (~85% attendance rate, ~60% homework completion)
+  to make test data feel natural
+- Parent accounts are pre-linked to students in the seed, so the parent dashboard works
+  immediately after seeding without manual setup
+
+### What's pending
+- Phase 6: Error handling (toast notifications), loading states (skeleton loaders),
+  database migration (SQLite → PostgreSQL), production seed script
+- Phase 7: VPS deployment, domain/SSL, CI/CD
+
+---
+
 <!-- Future sessions: copy the template below -->
 <!--
 ## Session N — YYYY-MM-DD
