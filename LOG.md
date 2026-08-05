@@ -908,3 +908,90 @@ UI, and a documentation-debt correction pass
 ### Key decisions
 - ...
 -->
+
+## Session 17 — 2026-08-05
+
+**Focus:** Dashboard UI enhancement (role-based homes: Admin/Teacher/Student/Parent)
+
+### What was done
+- Enhanced `StatCard` with icon chips, hover lift, staggered mount animation, and a new
+  `StatCardSkeleton` loading state.
+- Added shared `DashboardHeader` (time-aware greeting + date + optional action slot) and
+  `TodayPanel` (today's timetable sessions) components, replacing duplicated header markup
+  across all four role dashboards.
+- `AdminHome` gained a "Mark attendance" quick action and a `TodayPanel`.
+- `TeacherHome` gained a `TodayPanel`.
+- All four role homes now use consistent skeleton loading states instead of "…" placeholders.
+- Kept the existing pine/saffron/paper + Fraunces/Inter/JetBrains-Mono design identity intact —
+  this was a polish pass, not a rebrand.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in any file touched this session
+- `npm run build` → webpack compile ✅; type-check step hit pre-existing errors in unrelated API
+  routes caused by this sandbox failing to fetch the Prisma engine binary (network-restricted).
+  Not caused by this session's changes — recommend confirming with a local `npm run build`.
+
+### Key decisions
+- Extracted `DashboardHeader`/`TodayPanel` as shared components rather than duplicating markup
+  a fifth time.
+- `TodayPanel` consumes the real nested `bst.subject`/`bst.batch` timetable shape.
+
+### What's pending
+- Sidebar/TopBar polish (explicitly out of scope this session, per plan).
+- Attendance grid-card redesign (was in progress before this session — still pending).
+
+## Session 18 — 2026-08-05
+
+**Focus:** Dashboard UI enhancement, Pass 2 (richer visuals + more useful content)
+
+### What was done
+- Added `relative-time.ts` helper and shared `ActivityFeed` component.
+- `AdminHome`: "Recent activity" feed (homework + materials + attendance, merged/sorted from
+  existing endpoints), checklist progress bar, real hint text on the "Today's Sessions" card.
+- `TeacherHome`: own "Recent activity" feed beside `TodayPanel`.
+- `StudentHome`: "Upcoming homework" list (nearest 4 by due date, overdue highlighted in red).
+- `TodayPanel` empty state improved with an icon.
+- No new API routes/schema changes — everything composed from endpoints already in use.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in any file touched this session; full error set unchanged
+  from Session 17's sandbox-only Prisma-engine baseline (11 unrelated pre-existing files)
+- `npm run build` → webpack compile step passed; recommend confirming full build locally
+
+### Key decisions
+- Kept this pass entirely backend-free (composed from existing endpoints) by design.
+- No fabricated metrics — every stat/hint/activity item is real computed data.
+
+### What's pending
+- Sidebar/TopBar polish (still out of scope).
+- Attendance grid-card redesign (still pending from before Session 17).
+
+## Session 19 — 2026-08-05
+
+**Focus:** Fix wasted horizontal space on wide screens (reported via screenshot)
+
+### What was done
+- Replaced fixed `max-w-[720px]`/`max-w-[820px]` single-column layouts with a responsive
+  two-column grid (`xl:grid-cols-[1fr_320px]`) across `AdminHome`, `TeacherHome`, and
+  `StudentHome`, capped at `max-w-[1400px]` overall so the page uses available width on
+  large monitors instead of leaving a large empty right-hand gap.
+- Added a `QuickLinks` component (shared, defined once in `page.tsx`) — role-appropriate
+  shortcut links filling the right rail alongside `TodayPanel`.
+- `ParentHome`'s child cards now lay out in a 2-column grid on wide screens (`xl:grid-cols-2`)
+  instead of a single narrow stacked column.
+- Stat card grids now flex from 2 columns (mobile) up to 4 (Admin) / 3 (Teacher/Student) on
+  larger screens instead of a fixed narrow 2-column block.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in touched files (fixed one incidental type error: the new
+  `QuickLinks` icon prop needed the proper `LucideIcon` type instead of a hand-rolled one)
+- Full error set otherwise unchanged from the Session 17/18 sandbox Prisma-engine baseline
+
+### Key decisions
+- Capped total width at 1400px rather than going fully fluid — keeps line lengths/card sizes
+  readable on ultra-wide monitors instead of stretching content edge-to-edge.
+- Right rail is `xl:` breakpoint only — stacks back to a single column on narrower screens
+  rather than squeezing a 320px column onto a laptop-width viewport.

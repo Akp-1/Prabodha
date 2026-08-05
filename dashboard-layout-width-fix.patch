@@ -1,0 +1,446 @@
+diff --git a/LOG.md b/LOG.md
+index 739b744..5f91768 100644
+--- a/LOG.md
++++ b/LOG.md
+@@ -967,3 +967,31 @@ UI, and a documentation-debt correction pass
+ ### What's pending
+ - Sidebar/TopBar polish (still out of scope).
+ - Attendance grid-card redesign (still pending from before Session 17).
++
++## Session 19 — 2026-08-05
++
++**Focus:** Fix wasted horizontal space on wide screens (reported via screenshot)
++
++### What was done
++- Replaced fixed `max-w-[720px]`/`max-w-[820px]` single-column layouts with a responsive
++  two-column grid (`xl:grid-cols-[1fr_320px]`) across `AdminHome`, `TeacherHome`, and
++  `StudentHome`, capped at `max-w-[1400px]` overall so the page uses available width on
++  large monitors instead of leaving a large empty right-hand gap.
++- Added a `QuickLinks` component (shared, defined once in `page.tsx`) — role-appropriate
++  shortcut links filling the right rail alongside `TodayPanel`.
++- `ParentHome`'s child cards now lay out in a 2-column grid on wide screens (`xl:grid-cols-2`)
++  instead of a single narrow stacked column.
++- Stat card grids now flex from 2 columns (mobile) up to 4 (Admin) / 3 (Teacher/Student) on
++  larger screens instead of a fixed narrow 2-column block.
++
++### Verification
++- `npm run lint` → ✅ 0 errors
++- `npx tsc --noEmit` → ✅ 0 errors in touched files (fixed one incidental type error: the new
++  `QuickLinks` icon prop needed the proper `LucideIcon` type instead of a hand-rolled one)
++- Full error set otherwise unchanged from the Session 17/18 sandbox Prisma-engine baseline
++
++### Key decisions
++- Capped total width at 1400px rather than going fully fluid — keeps line lengths/card sizes
++  readable on ultra-wide monitors instead of stretching content edge-to-edge.
++- Right rail is `xl:` breakpoint only — stacks back to a single column on narrower screens
++  rather than squeezing a 320px column onto a laptop-width viewport.
+diff --git a/src/app/(dashboard)/dashboard/page.tsx b/src/app/(dashboard)/dashboard/page.tsx
+index 1f4bc1f..18d4e34 100644
+--- a/src/app/(dashboard)/dashboard/page.tsx
++++ b/src/app/(dashboard)/dashboard/page.tsx
+@@ -4,7 +4,7 @@ import Link from 'next/link';
+ import { useEffect, useState } from 'react';
+ import {
+     Users, GraduationCap, Layers, Calendar, BookMarked, Award, ClipboardCheck, Check,
+-    ClipboardList, FileText, ClipboardEdit,
++    ClipboardList, FileText, ClipboardEdit, type LucideIcon,
+ } from 'lucide-react';
+ import { StatCard, StatCardSkeleton } from '@/components/dashboard/StatCard';
+ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+@@ -25,6 +25,28 @@ const INITIAL_CHECKLIST = [
+   { key: 'attendance', label: "Record today's attendance", done: false },
+ ];
+ 
++function QuickLinks({ items }: { items: { label: string; href: string; icon: LucideIcon }[] }) {
++    return (
++        <div className="bg-white border border-line rounded-xl px-6 py-6">
++            <div className="font-display font-semibold text-[17px] mb-3">Quick links</div>
++            <div className="flex flex-col gap-1">
++                {items.map((item) => (
++                    <Link
++                        key={item.href}
++                        href={item.href}
++                        className="flex items-center gap-3 py-2 px-1.5 rounded-lg text-[14px] font-medium text-ink hover:bg-paper transition-colors"
++                    >
++                        <span className="w-7 h-7 rounded-md bg-pine/[0.07] flex items-center justify-center flex-shrink-0">
++                            <item.icon size={14} strokeWidth={1.8} className="text-pine" />
++                        </span>
++                        {item.label}
++                    </Link>
++                ))}
++            </div>
++        </div>
++    );
++}
++
+ function AdminHome() {
+     const [stats, setStats] = useState({ students: 0, teachers: 0, batches: 0, todaySessions: 0 });
+     const [todaySlots, setTodaySlots] = useState<TodaySlot[]>([]);
+@@ -101,7 +123,7 @@ function AdminHome() {
+     const progressPct = Math.round((doneCount / checklist.length) * 100);
+ 
+     return (
+-        <>
++        <div className="max-w-[1400px]">
+             <DashboardHeader
+                 title="Institute overview"
+                 action={
+@@ -115,63 +137,73 @@ function AdminHome() {
+                 }
+             />
+ 
+-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[820px]">{error}</div>}
+-
+-            <div className="grid grid-cols-2 gap-[18px] mb-[30px] max-w-[720px]">
+-                {isLoading ? (
+-                    <>
+-                        <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+-                    </>
+-                ) : (
+-                    <>
+-                        <StatCard label="Total Learners" value={stats.students} icon={Users} delay={0} />
+-                        <StatCard label="Faculty Members" value={stats.teachers} icon={GraduationCap} delay={60} />
+-                        <StatCard label="Active Batches" value={stats.batches} icon={Layers} delay={120} />
+-                        <StatCard
+-                            label="Today's Sessions" value={stats.todaySessions} icon={Calendar} delay={180}
+-                            hint={stats.todaySessions > 0 ? `${stats.todaySessions} on the schedule` : 'Nothing scheduled'}
+-                        />
+-                    </>
+-                )}
+-            </div>
++            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
++
++            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[18px] items-start">
++                <div className="min-w-0">
++                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-[18px] mb-[18px]">
++                        {isLoading ? (
++                            <>
++                                <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
++                            </>
++                        ) : (
++                            <>
++                                <StatCard label="Total Learners" value={stats.students} icon={Users} delay={0} />
++                                <StatCard label="Faculty Members" value={stats.teachers} icon={GraduationCap} delay={60} />
++                                <StatCard label="Active Batches" value={stats.batches} icon={Layers} delay={120} />
++                                <StatCard
++                                    label="Today's Sessions" value={stats.todaySessions} icon={Calendar} delay={180}
++                                    hint={stats.todaySessions > 0 ? `${stats.todaySessions} on the schedule` : 'Nothing scheduled'}
++                                />
++                            </>
++                        )}
++                    </div>
+ 
+-            <div className="flex items-start gap-[18px] max-w-[820px] mb-[18px]">
+-                {/* Getting Started checklist (from contributor) */}
+-                <div className="bg-white border border-line rounded-xl px-8 py-[30px] flex-1">
+-                  <div className="flex items-center justify-between mb-1">
+-                    <div className="font-display font-semibold text-[21px]">Getting started</div>
+-                    <span className="text-[12px] font-medium text-ink-soft">{doneCount}/{checklist.length}</span>
+-                  </div>
+-                  <div className="h-1.5 rounded-full bg-paper overflow-hidden mb-[18px]">
+-                    <div className="h-full rounded-full bg-saffron transition-all duration-500" style={{ width: `${progressPct}%` }} />
+-                  </div>
+-                  <div className="flex flex-col gap-1">
+-                    {checklist.map((item) => (
+-                      <button
+-                        key={item.key}
+-                        onClick={() => toggle(item.key)}
+-                        className="flex items-center gap-3 py-[11px] px-1.5 rounded-lg text-left w-full text-[15px] hover:bg-paper transition-colors"
+-                      >
+-                        <span
+-                          className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border ${
+-                            item.done ? 'bg-saffron border-saffron' : 'border-line'
+-                          }`}
+-                        >
+-                          {item.done && <Check size={13} strokeWidth={3} className="text-pine-deep" />}
+-                        </span>
+-                        <span className={item.done ? 'text-ink-soft line-through' : 'text-ink'}>{item.label}</span>
+-                      </button>
+-                    ))}
+-                  </div>
+-                </div>
++                    {/* Getting Started checklist (from contributor) */}
++                    <div className="bg-white border border-line rounded-xl px-8 py-[30px] mb-[18px]">
++                      <div className="flex items-center justify-between mb-1">
++                        <div className="font-display font-semibold text-[21px]">Getting started</div>
++                        <span className="text-[12px] font-medium text-ink-soft">{doneCount}/{checklist.length}</span>
++                      </div>
++                      <div className="h-1.5 rounded-full bg-paper overflow-hidden mb-[18px]">
++                        <div className="h-full rounded-full bg-saffron transition-all duration-500" style={{ width: `${progressPct}%` }} />
++                      </div>
++                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
++                        {checklist.map((item) => (
++                          <button
++                            key={item.key}
++                            onClick={() => toggle(item.key)}
++                            className="flex items-center gap-3 py-[11px] px-1.5 rounded-lg text-left w-full text-[15px] hover:bg-paper transition-colors"
++                          >
++                            <span
++                              className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border ${
++                                item.done ? 'bg-saffron border-saffron' : 'border-line'
++                              }`}
++                            >
++                              {item.done && <Check size={13} strokeWidth={3} className="text-pine-deep" />}
++                            </span>
++                            <span className={item.done ? 'text-ink-soft line-through' : 'text-ink'}>{item.label}</span>
++                          </button>
++                        ))}
++                      </div>
++                    </div>
+ 
+-                <TodayPanel slots={todaySlots} isLoading={isLoading} />
+-            </div>
++                    <ActivityFeed items={activity} isLoading={isLoading} />
++                </div>
+ 
+-            <div className="max-w-[820px]">
+-                <ActivityFeed items={activity} isLoading={isLoading} />
++                <div className="flex flex-col gap-[18px]">
++                    <TodayPanel slots={todaySlots} isLoading={isLoading} />
++                    <QuickLinks
++                        items={[
++                            { label: 'Add a learner', href: '/dashboard/students', icon: Users },
++                            { label: 'Add faculty', href: '/dashboard/teachers', icon: GraduationCap },
++                            { label: 'New batch', href: '/dashboard/batches', icon: Layers },
++                            { label: 'Weekly timetable', href: '/dashboard/timetable', icon: Calendar },
++                        ]}
++                    />
++                </div>
+             </div>
+-        </>
++        </div>
+     );
+ }
+ 
+@@ -223,30 +255,42 @@ function TeacherHome() {
+     }, []);
+ 
+     return (
+-        <>
++        <div className="max-w-[1400px]">
+             <DashboardHeader title="Your classes" />
+ 
+-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[820px]">{error}</div>}
+-
+-            <div className="grid grid-cols-3 gap-[18px] mb-[30px] max-w-[720px]">
+-                {isLoading ? (
+-                    <>
+-                        <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+-                    </>
+-                ) : (
+-                    <>
+-                        <StatCard label="Assigned Classes" value={stats.assignments} icon={GraduationCap} delay={0} />
+-                        <StatCard label="Sessions Today" value={stats.todaySessions} icon={Calendar} delay={60} />
+-                        <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} delay={120} />
+-                    </>
+-                )}
+-            </div>
++            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
++
++            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[18px] items-start">
++                <div className="min-w-0">
++                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px] mb-[18px]">
++                        {isLoading ? (
++                            <>
++                                <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
++                            </>
++                        ) : (
++                            <>
++                                <StatCard label="Assigned Classes" value={stats.assignments} icon={GraduationCap} delay={0} />
++                                <StatCard label="Sessions Today" value={stats.todaySessions} icon={Calendar} delay={60} />
++                                <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} delay={120} />
++                            </>
++                        )}
++                    </div>
++
++                    <ActivityFeed items={activity} isLoading={isLoading} />
++                </div>
+ 
+-            <div className="flex items-start gap-[18px] max-w-[820px]">
+-                <ActivityFeed items={activity} isLoading={isLoading} />
+-                <TodayPanel slots={todaySlots} isLoading={isLoading} />
++                <div className="flex flex-col gap-[18px]">
++                    <TodayPanel slots={todaySlots} isLoading={isLoading} />
++                    <QuickLinks
++                        items={[
++                            { label: 'Mark attendance', href: '/dashboard/attendance', icon: ClipboardList },
++                            { label: 'Assign homework', href: '/dashboard/homework', icon: BookMarked },
++                            { label: 'Upload materials', href: '/dashboard/materials', icon: FileText },
++                        ]}
++                    />
++                </div>
+             </div>
+-        </>
++        </div>
+     );
+ }
+ 
+@@ -285,57 +329,72 @@ function StudentHome() {
+     }, []);
+ 
+     return (
+-        <>
++        <div className="max-w-[1400px]">
+             <DashboardHeader title="Your learning space" />
+ 
+-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[820px]">{error}</div>}
+-
+-            <div className="grid grid-cols-3 gap-[18px] mb-[18px] max-w-[720px]">
+-                {isLoading ? (
+-                    <>
+-                        <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+-                    </>
+-                ) : (
+-                    <>
+-                        <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} delay={0} />
+-                        <StatCard label="Study Materials" value={stats.materials} icon={ClipboardCheck} delay={60} />
+-                        <StatCard label="Assessments Graded" value={stats.gradedExams} icon={Award} delay={120} />
+-                    </>
+-                )}
+-            </div>
+-
+-            <div className="bg-white border border-line rounded-xl px-8 py-[30px] max-w-[720px]">
+-                <div className="font-display font-semibold text-[21px] mb-[18px]">Upcoming homework</div>
+-                {isLoading ? (
+-                    <div className="flex flex-col gap-3">
+-                        {[1, 2, 3].map((i) => <div key={i} className="h-[52px] rounded-lg bg-paper animate-pulse" />)}
++            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
++
++            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[18px] items-start">
++                <div className="min-w-0">
++                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px] mb-[18px]">
++                        {isLoading ? (
++                            <>
++                                <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
++                            </>
++                        ) : (
++                            <>
++                                <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} delay={0} />
++                                <StatCard label="Study Materials" value={stats.materials} icon={ClipboardCheck} delay={60} />
++                                <StatCard label="Assessments Graded" value={stats.gradedExams} icon={Award} delay={120} />
++                            </>
++                        )}
+                     </div>
+-                ) : upcoming.length === 0 ? (
+-                    <div className="text-sm text-ink-soft py-2">Nothing pending — you&apos;re all caught up.</div>
+-                ) : (
+-                    <div className="flex flex-col gap-1">
+-                        {upcoming.map((h) => {
+-                            const daysLeft = Math.ceil((new Date(h.dueDate).getTime() - Date.now()) / 86400000);
+-                            const overdue = daysLeft < 0;
+-                            return (
+-                                <div key={h.id} className="flex items-center gap-3 py-2.5 px-1.5 rounded-lg">
+-                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${overdue ? 'bg-red-50' : 'bg-pine/[0.07]'}`}>
+-                                        <BookMarked size={14} strokeWidth={1.8} className={overdue ? 'text-red-500' : 'text-pine'} />
+-                                    </span>
+-                                    <div className="min-w-0 flex-1">
+-                                        <div className="text-[14px] font-medium text-ink truncate">{h.title}</div>
+-                                        <div className="text-[12px] text-ink-soft truncate">{h.subject}</div>
+-                                    </div>
+-                                    <div className={`text-[11.5px] font-medium flex-shrink-0 ${overdue ? 'text-red-500' : 'text-ink-soft'}`}>
+-                                        {overdue ? 'Overdue' : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
+-                                    </div>
+-                                </div>
+-                            );
+-                        })}
++
++                    <div className="bg-white border border-line rounded-xl px-8 py-[30px]">
++                        <div className="font-display font-semibold text-[21px] mb-[18px]">Upcoming homework</div>
++                        {isLoading ? (
++                            <div className="flex flex-col gap-3">
++                                {[1, 2, 3].map((i) => <div key={i} className="h-[52px] rounded-lg bg-paper animate-pulse" />)}
++                            </div>
++                        ) : upcoming.length === 0 ? (
++                            <div className="text-sm text-ink-soft py-2">Nothing pending — you&apos;re all caught up.</div>
++                        ) : (
++                            <div className="flex flex-col gap-1">
++                                {upcoming.map((h) => {
++                                    const daysLeft = Math.ceil((new Date(h.dueDate).getTime() - Date.now()) / 86400000);
++                                    const overdue = daysLeft < 0;
++                                    return (
++                                        <div key={h.id} className="flex items-center gap-3 py-2.5 px-1.5 rounded-lg">
++                                            <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${overdue ? 'bg-red-50' : 'bg-pine/[0.07]'}`}>
++                                                <BookMarked size={14} strokeWidth={1.8} className={overdue ? 'text-red-500' : 'text-pine'} />
++                                            </span>
++                                            <div className="min-w-0 flex-1">
++                                                <div className="text-[14px] font-medium text-ink truncate">{h.title}</div>
++                                                <div className="text-[12px] text-ink-soft truncate">{h.subject}</div>
++                                            </div>
++                                            <div className={`text-[11.5px] font-medium flex-shrink-0 ${overdue ? 'text-red-500' : 'text-ink-soft'}`}>
++                                                {overdue ? 'Overdue' : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
++                                            </div>
++                                        </div>
++                                    );
++                                })}
++                            </div>
++                        )}
+                     </div>
+-                )}
++                </div>
++
++                <div className="flex flex-col gap-[18px]">
++                    <QuickLinks
++                        items={[
++                            { label: 'View homework', href: '/dashboard/homework', icon: BookMarked },
++                            { label: 'Study materials', href: '/dashboard/materials', icon: ClipboardCheck },
++                            { label: 'My marks', href: '/dashboard/marks', icon: Award },
++                            { label: 'My attendance', href: '/dashboard/attendance', icon: ClipboardList },
++                        ]}
++                    />
++                </div>
+             </div>
+-        </>
++        </div>
+     );
+ }
+ 
+@@ -402,13 +461,13 @@ function ParentHome() {
+     }, []);
+ 
+     return (
+-        <>
++        <div className="max-w-[1400px]">
+             <DashboardHeader title="Parent dashboard" />
+ 
+-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[820px]">{error}</div>}
++            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
+ 
+             {isLoading ? (
+-                <div className="max-w-[720px] space-y-4">
++                <div className="grid grid-cols-1 xl:grid-cols-2 gap-[18px]">
+                     {[1, 2].map((i) => (
+                         <div key={i} className="bg-white border border-line rounded-xl h-[200px] animate-pulse" />
+                     ))}
+@@ -418,7 +477,7 @@ function ParentHome() {
+                     No children have been linked to your account yet. Please ask your institute admin to link your child&apos;s profile to your parent account.
+                 </div>
+             ) : (
+-                <div className="space-y-6 max-w-[820px]">
++                <div className="grid grid-cols-1 xl:grid-cols-2 gap-[18px] items-start">
+                     {children.map((child) => (
+                         <div key={child.student.id} className="bg-white border border-line rounded-xl overflow-hidden">
+                             {/* Header */}
+@@ -479,7 +538,7 @@ function ParentHome() {
+                     ))}
+                 </div>
+             )}
+-        </>
++        </div>
+     );
+ }
+ 
+diff --git a/task.md b/task.md
+index aa86eec..1b5c14f 100644
+--- a/task.md
++++ b/task.md
+@@ -8,3 +8,10 @@
+ - [x] `StudentHome`: upcoming homework list
+ - [x] Run `npm run lint` / `tsc --noEmit` / `npm run build`
+ - [x] Update `walkthrough.md` and `LOG.md`
++
++## Session 19 addendum — Layout width fix
++- [x] Restructure Admin/Teacher/Student/Parent dashboards into responsive two-column layout
++- [x] Add `QuickLinks` component
++- [x] Widen `max-w` from 720/820px to 1400px
++- [x] Fix `QuickLinks` icon prop type
++- [x] Verify lint/tsc

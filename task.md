@@ -1,10 +1,17 @@
-# Task Checklist — Login Page & Auth Flow
+# Task Checklist — Dashboard UI Enhancement, Pass 2
 
-- [x] Create `AuthProvider.tsx` context with `useAuth` hook in `src/components/auth/AuthProvider.tsx`
-- [x] Wrap root layout in `AuthProvider` in `src/app/layout.tsx`
-- [x] Create `/login` page at `src/app/login/page.tsx`
-- [x] Update root page `/` in `src/app/page.tsx` with landing UI & redirect to `/login`
-- [x] Update `DashboardLayout` in `src/app/(dashboard)/layout.tsx` with auth guard check & loading spinner
-- [x] Update `TopBar.tsx` to display user info and wire Sign Out button
-- [x] Run `npm run lint` and `npm run build` to verify zero errors
-- [x] Update `LOG.md` and `ROADMAP.md` with session progress
+- [x] Create `src/lib/relative-time.ts`
+- [x] Create `ActivityFeed.tsx` (shared)
+- [x] Improve `TodayPanel` empty state (icon)
+- [x] `AdminHome`: recent activity feed + checklist progress bar
+- [x] `TeacherHome`: recent activity feed
+- [x] `StudentHome`: upcoming homework list
+- [x] Run `npm run lint` / `tsc --noEmit` / `npm run build`
+- [x] Update `walkthrough.md` and `LOG.md`
+
+## Session 19 addendum — Layout width fix
+- [x] Restructure Admin/Teacher/Student/Parent dashboards into responsive two-column layout
+- [x] Add `QuickLinks` component
+- [x] Widen `max-w` from 720/820px to 1400px
+- [x] Fix `QuickLinks` icon prop type
+- [x] Verify lint/tsc
