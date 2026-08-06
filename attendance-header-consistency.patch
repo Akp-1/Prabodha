@@ -1,0 +1,192 @@
+diff --git a/LOG.md b/LOG.md
+index abe77c4..ed45aec 100644
+--- a/LOG.md
++++ b/LOG.md
+@@ -1016,3 +1016,23 @@ UI, and a documentation-debt correction pass
+ - Extending the dashboard's visual language to Attendance/Timetable/Materials/Homework/Marks
+   pages (still not started).
+ - Attendance/parent-access functional work (still deferred from before Session 17).
++
++## Session 21 — 2026-08-05
++
++**Focus:** Begin extending dashboard design language to other pages — Attendance first
++
++### What was done
++- Swapped both attendance views' manual headers for the shared `DashboardHeader`.
++
++### Verification
++- `npm run lint` → ✅ 0 errors
++- `npx tsc --noEmit` → ✅ no new errors in `attendance/page.tsx`
++
++### Flagged, not fixed
++- `AttendancePage` sends parents into the teacher marking view (role switch only checks for
++  `'student'`) — functional gap tied to the deferred `ParentStudentLink` work, intentionally
++  left alone in this UI-only pass.
++
++### What's pending
++- Timetable, Materials, Homework, Marks pages — same header treatment still to do.
++- Attendance/parent-access functional work (still deferred).
+diff --git a/implementation_plan.md b/implementation_plan.md
+index 90119c1..55d8da0 100644
+--- a/implementation_plan.md
++++ b/implementation_plan.md
+@@ -1,35 +1,23 @@
+-# Implementation Plan — Sidebar / TopBar Polish
++# Implementation Plan — Extend Dashboard Design Language to Other Pages
+ 
+ ## Goal
+-Bring Sidebar and TopBar up to the same "top-level app" polish as the dashboard passes,
+-without adding any features that don't have real backend support behind them.
++Bring the pages outside the dashboard (Attendance, Timetable, Materials, Homework, Marks) up
++to the same header/spacing consistency established in the dashboard passes, one page at a time.
+ 
+-## Changes
++## This session: Attendance page only
++- Swap both `TeacherAttendanceView` and `StudentAttendanceView`'s manual eyebrow+`<h1>` header
++  markup for the shared `DashboardHeader` component, matching the dashboard's header style
++  and spacing exactly.
++- No other structural changes — the page's tab system, marking grid, and stat displays were
++  already well-built and visually consistent with the pine/saffron/paper system; only the
++  header needed unifying.
+ 
+-1. **`Sidebar.tsx`**
+-   - **Active-state matching**: currently `pathname === item.href` (exact match only), so a
+-     detail page like `/dashboard/students/123` doesn't highlight "Learners". Switch to a
+-     "starts with" match (except Dashboard itself, which should only be active on the exact
+-     `/dashboard` route).
+-   - **Left accent bar** on the active item (thin saffron bar), in addition to the existing
+-     background tint, for a clearer active indicator that also reads well in collapsed mode.
+-   - **Grouped sections**: split the flat nav list into labeled groups — "Overview" (Dashboard),
+-     "People" (Learners/Faculty/Parents, admin only), "Academics" (Batches/Subjects/Timetable/
+-     Attendance/Materials/Homework/Marks), "Admin" (Settings) — using the same small-caps mono
+-     label style already used for "Institute". Groups with no items for the current role are
+-     skipped entirely.
+-   - **Footer**: add a small pinned-to-bottom brand/version line (`mt-auto`) to use the empty
+-     space at the bottom of a tall sidebar — text only, no dead links.
+-
+-2. **`TopBar.tsx`**
+-   - Combine the static user block + separate "Sign out" button into a single click-to-open
+-     dropdown (avatar + name click target), containing role and a "Sign out" action. Closes on
+-     outside click and `Escape`. Reduces visual clutter in the top bar.
+-
+-## Non-goals
+-- No new routes (no fabricated "Help", "Profile", or "Notifications" links).
+-- No change to route protection/guards — purely presentational + the active-match fix.
++## Explicitly not touched this session
++- The `AttendancePage` role switch only branches on `role === 'student'` — parents currently
++  fall through to the teacher marking view. This is a functional bug tied to the deferred
++  `ParentStudentLink` work, not a styling issue, so it's left alone here to avoid conflating
++  UI polish with the pending backend/access-control fix.
++- Timetable, Materials, Homework, Marks pages — queued for subsequent sessions.
+ 
+ ## Verification
+-- `npm run lint`, `npx tsc --noEmit` (scoped to touched files vs. pre-existing sandbox
+-  Prisma-engine baseline), `npm run build` webpack compile step.
++- `npm run lint`, `npx tsc --noEmit` scoped to `attendance/page.tsx`.
+diff --git a/src/app/(dashboard)/dashboard/attendance/page.tsx b/src/app/(dashboard)/dashboard/attendance/page.tsx
+index 0331a43..e327e15 100644
+--- a/src/app/(dashboard)/dashboard/attendance/page.tsx
++++ b/src/app/(dashboard)/dashboard/attendance/page.tsx
+@@ -5,6 +5,7 @@ import { Check, Search } from 'lucide-react';
+ import { apiFetch, ApiClientError } from '@/lib/api-client';
+ import { useAuth } from '@/components/auth/AuthProvider';
+ import { CircularProgress } from '@/components/dashboard/CircularProgress';
++import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+ 
+ type Assignment = {
+   id: string;
+@@ -156,10 +157,7 @@ function TeacherAttendanceView() {
+ 
+   return (
+       <div className="max-w-[1120px]">
+-        <div className="mb-6">
+-          <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Daily operations</div>
+-          <h1 className="font-display font-semibold text-[32px] tracking-tight">Attendance</h1>
+-        </div>
++        <DashboardHeader title="Attendance" />
+ 
+         {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
+ 
+@@ -340,10 +338,7 @@ function StudentAttendanceView() {
+ 
+   return (
+       <div className="max-w-[900px]">
+-        <div className="mb-6">
+-          <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">My records</div>
+-          <h1 className="font-display font-semibold text-[32px] tracking-tight">Attendance</h1>
+-        </div>
++        <DashboardHeader title="Attendance" />
+ 
+         {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
+ 
+diff --git a/task.md b/task.md
+index 9f0c613..a4dd5e5 100644
+--- a/task.md
++++ b/task.md
+@@ -1,9 +1,6 @@
+-# Task Checklist — Sidebar / TopBar Polish
++# Task Checklist — Extend Design Language: Attendance Page
+ 
+-- [x] Sidebar: nested-route-aware active state
+-- [x] Sidebar: left accent bar on active item
+-- [x] Sidebar: grouped nav sections (Overview/People/Academics/Admin)
+-- [x] Sidebar: footer brand line
+-- [x] TopBar: user dropdown (avatar+name → role + sign out), remove standalone button
+-- [x] Verify lint / tsc / build
+-- [ ] Update walkthrough.md and LOG.md
++- [x] `TeacherAttendanceView`: swap manual header for `DashboardHeader`
++- [x] `StudentAttendanceView`: swap manual header for `DashboardHeader`
++- [x] Verify lint / tsc
++- [x] Update walkthrough.md and LOG.md
+diff --git a/walkthrough.md b/walkthrough.md
+index 1bc4eba..741e0b9 100644
+--- a/walkthrough.md
++++ b/walkthrough.md
+@@ -1,34 +1,18 @@
+-# Session Walkthrough — Sidebar / TopBar Polish
++# Session Walkthrough — Extend Design Language: Attendance Page
+ 
+ ## Accomplishments
++- Both attendance views (`TeacherAttendanceView` for admin/teacher, `StudentAttendanceView`
++  for students) now use the shared `DashboardHeader` component instead of their own
++  hand-rolled eyebrow+`<h1>` markup — matching the dashboard's greeting/date header exactly.
++- No other changes: the page's marking grid, search, tabs, and progress visualizations were
++  already solid and left untouched.
+ 
+-1. **`Sidebar.tsx`**
+-   - Active-state matching now uses a "starts with" test for nested routes (e.g. a future
+-     `/dashboard/students/[id]` detail page will correctly highlight "Learners"), while
+-     `/dashboard` itself stays exact-match so it doesn't stay lit on every sub-page.
+-   - Added a thin saffron left-accent bar on the active nav item, alongside the existing
+-     background tint — reads clearly in both expanded and collapsed sidebar states.
+-   - Nav restructured from one flat list into four labeled groups — Overview, People,
+-     Academics, Admin — using the existing small-caps mono label style. Groups with no
+-     items for the current role are omitted entirely (e.g. students see no "People" or
+-     "Admin" group).
+-   - Added a pinned footer (`mt-auto`) with a small brand/version line, filling the
+-     previously-empty space at the bottom of a tall sidebar. Text only — no dead links to
+-     nonexistent pages.
+-
+-2. **`TopBar.tsx`**
+-   - Replaced the static user block + separate "Sign out" button with a single click-to-open
+-     dropdown: clicking the avatar/name reveals a small menu with the user's name, email, and
+-     a "Sign out" action. Closes on outside click or Escape.
+-   - Reduces top-bar clutter and matches the pattern used in most modern SaaS apps.
+-
+-## Verification Results
++## Verification
+ - `npm run lint`: 0 warnings/errors.
+-- `npx tsc --noEmit`: 0 errors in `Sidebar.tsx`/`TopBar.tsx`; full error set unchanged from
+-  the established sandbox Prisma-engine baseline (same 11 unrelated pre-existing files).
++- `npx tsc --noEmit`: no new errors in `attendance/page.tsx`.
+ 
+-## Key decisions
+-- No new routes/links were added (no "Help", "Profile", "Notifications") since none of those
+-  pages exist yet — the footer is intentionally just branding text, not a fake feature.
+-- Kept the dropdown to exactly what the app currently supports (name, email, sign out) rather
+-  than stubbing out a "Profile settings" item with no destination.
++## Flagged but not fixed (out of scope for this UI-only pass)
++- `AttendancePage`'s role switch (`user?.role === 'student' ? Student... : Teacher...`) sends
++  parents into the teacher marking view rather than a read-only view — this is the parent-
++  access gap noted as deferred pending `ParentStudentLink` field confirmation, not a styling
++  issue. Left alone here.

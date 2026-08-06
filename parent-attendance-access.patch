@@ -1,0 +1,517 @@
+diff --git a/LOG.md b/LOG.md
+index ed45aec..75ee36d 100644
+--- a/LOG.md
++++ b/LOG.md
+@@ -1036,3 +1036,27 @@ UI, and a documentation-debt correction pass
+ ### What's pending
+ - Timetable, Materials, Homework, Marks pages — same header treatment still to do.
+ - Attendance/parent-access functional work (still deferred).
++
++## Session 22 — 2026-08-05
++
++**Focus:** Fix parent attendance access bug (deferred from before Session 17)
++
++### What was done
++- `attendance/route.ts`: parents can now GET attendance, scoped via `ParentStudentLink` to
++  their linked children's batches, with `records` filtered to only their own children and
++  `student.name` attached for multi-child disambiguation.
++- `attendance/page.tsx`: fixed `AttendancePage`'s role switch — parents no longer fall through
++  to the teacher marking grid. New `ParentAttendanceView` (same tabs as student view, plus a
++  child selector for multi-child parents).
++- `Sidebar.tsx`: added `'parent'` to Attendance's nav roles.
++
++### Verification
++- `npm run lint` → ✅ 0 errors
++- `npx tsc --noEmit` → new parent-scoping code triggers the same pre-existing sandbox Prisma-
++  fallback error class already present in `homework/route.ts`'s identical pattern — confirmed
++  not a real bug, traced line-by-line.
++
++### What's pending
++- `marks/page.tsx` still has no parent role support (separate, still open).
++- Materials/Homework pages haven't had the `DashboardHeader` consistency pass yet.
++- Timetable page hasn't had the design-language pass.
+diff --git a/implementation_plan.md b/implementation_plan.md
+index 55d8da0..f8d9768 100644
+--- a/implementation_plan.md
++++ b/implementation_plan.md
+@@ -1,23 +1,42 @@
+-# Implementation Plan — Extend Dashboard Design Language to Other Pages
++# Implementation Plan — Parent Attendance Access
+ 
+ ## Goal
+-Bring the pages outside the dashboard (Attendance, Timetable, Materials, Homework, Marks) up
+-to the same header/spacing consistency established in the dashboard passes, one page at a time.
++Fix the flagged bug where parents fell through to the teacher marking view on the Attendance
++page, and give them a real read-only view — following the same ParentStudentLink-resolved
++scoping pattern already used by Homework and Materials.
+ 
+-## This session: Attendance page only
+-- Swap both `TeacherAttendanceView` and `StudentAttendanceView`'s manual eyebrow+`<h1>` header
+-  markup for the shared `DashboardHeader` component, matching the dashboard's header style
+-  and spacing exactly.
+-- No other structural changes — the page's tab system, marking grid, and stat displays were
+-  already well-built and visually consistent with the pine/saffron/paper system; only the
+-  header needed unifying.
++## Changes
+ 
+-## Explicitly not touched this session
+-- The `AttendancePage` role switch only branches on `role === 'student'` — parents currently
+-  fall through to the teacher marking view. This is a functional bug tied to the deferred
+-  `ParentStudentLink` work, not a styling issue, so it's left alone here to avoid conflating
+-  UI polish with the pending backend/access-control fix.
+-- Timetable, Materials, Homework, Marks pages — queued for subsequent sessions.
++1. **`src/app/api/attendance/route.ts`**
++   - `requireRole` now includes `'parent'`.
++   - Resolve a parent's linked children (`ParentStudentLink` → `childIds`) and their batches
++     (`linkedBatchIds`), then scope the BatchSubjectTeacher filter to those batches — same
++     shape as the existing student/teacher branches.
++   - Records now include `student: { select: { name: true } }` so a parent with multiple
++     children can tell rows apart (the frontend `AttendanceRecord` type already had an
++     optional `student.name` field anticipating this).
++   - New `hideRecordsExceptChildren` helper (parent equivalent of the existing
++     `hideOthersRecords` for students) — filters each session's `records` down to just the
++     parent's own children, and sets `myRecord` when exactly one child appears in a session.
++
++2. **`src/app/(dashboard)/dashboard/attendance/page.tsx`**
++   - `AttendancePage`'s role switch now branches: student → `StudentAttendanceView`,
++     parent → new `ParentAttendanceView`, everyone else → `TeacherAttendanceView`. Parents no
++     longer land in the teacher marking grid.
++   - New `ParentAttendanceView`: same Subject-wise / Log / Monthly / Overall tabs as the
++     student view, sourced from `/api/parent-dashboard` (linked children list) and
++     `/api/attendance` (now parent-scoped). Shows a child selector dropdown when a parent has
++     more than one linked student.
++
++3. **`src/components/dashboard/Sidebar.tsx`**
++   - Added `'parent'` to the Attendance nav item's roles now that the page is functional for
++     that role.
++
++## Non-goals
++- No changes to Materials/Homework/Marks parent scoping — already implemented in prior work.
++- `marks/page.tsx` parent support remains a separate follow-up (noted, not started here).
+ 
+ ## Verification
+-- `npm run lint`, `npx tsc --noEmit` scoped to `attendance/page.tsx`.
++- `npm run lint`, `npx tsc --noEmit` — new errors in `attendance/route.ts` traced line-by-line
++  and confirmed to match the exact same pre-existing sandbox Prisma-fallback pattern already
++  present (and unavoidable) in `homework/route.ts`'s identical `ParentStudentLink` scoping code.
+diff --git a/src/app/(dashboard)/dashboard/attendance/page.tsx b/src/app/(dashboard)/dashboard/attendance/page.tsx
+index e327e15..3d45b65 100644
+--- a/src/app/(dashboard)/dashboard/attendance/page.tsx
++++ b/src/app/(dashboard)/dashboard/attendance/page.tsx
+@@ -16,7 +16,6 @@ type Assignment = {
+ type Student = { id: string; name: string; email: string; batchId: string | null };
+ 
+ type AttendanceRecord = { studentId: string; status: 'present' | 'absent'; student?: { name: string } };
+-
+ type AttendanceSession = {
+   id: string;
+   sessionDate: string;
+@@ -442,5 +441,228 @@ function StudentAttendanceView() {
+ export default function AttendancePage() {
+   const { user } = useAuth();
+   if (user?.role === 'student') return <StudentAttendanceView />;
++  if (user?.role === 'parent') return <ParentAttendanceView />;
+   return <TeacherAttendanceView />;
++}
++
++// ---------------------------------------------------------------------------
++// Parent: read-only view per linked child — same Subject-wise / Log /
++// Monthly / Overall tabs as the student view, with a child selector when a
++// parent has more than one linked student. Sessions and their `records`
++// arrays are already scoped to the parent's own children server-side (see
++// hideRecordsExceptChildren in src/app/api/attendance/route.ts); this view
++// picks out the currently-selected child's record from that array the same
++// way a student's view already picks out `myRecord`.
++// ---------------------------------------------------------------------------
++
++interface LinkedChild { student: { id: string; name: string; batch: { name: string } | null } }
++
++function ParentAttendanceView() {
++  const [children, setChildren] = useState<LinkedChild[]>([]);
++  const [selectedChildId, setSelectedChildId] = useState('');
++  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
++  const [isLoading, setIsLoading] = useState(true);
++  const [error, setError] = useState<string | null>(null);
++  const [tab, setTab] = useState<Tab>('subject');
++
++  const [logFilter, setLogFilter] = useState<'absent' | 'present' | 'both'>('both');
++  const [logSubject, setLogSubject] = useState('all');
++
++  useEffect(() => {
++    (async () => {
++      setIsLoading(true);
++      setError(null);
++      try {
++        const [childData, sessionData] = await Promise.all([
++          apiFetch<LinkedChild[]>('/api/parent-dashboard'),
++          apiFetch<AttendanceSession[]>('/api/attendance'),
++        ]);
++        setChildren(childData);
++        if (childData.length) setSelectedChildId(childData[0].student.id);
++        setSessions(sessionData);
++      } catch (err) {
++        setError(err instanceof ApiClientError ? err.message : 'Failed to load attendance.');
++      } finally {
++        setIsLoading(false);
++      }
++    })();
++  }, []);
++
++  // Pick out the selected child's own record from each session's (already
++  // parent-scoped) records array, mirroring the student view's `myRecord`.
++  const withStatus = useMemo(() => {
++    return sessions
++        .map((s) => ({ ...s, myRecord: s.records.find((r) => r.studentId === selectedChildId) ?? null }))
++        .filter((s) => s.myRecord);
++  }, [sessions, selectedChildId]);
++
++  const subjectStats = useMemo(() => {
++    const bySubject = new Map<string, { total: number; present: number }>();
++    for (const s of withStatus) {
++      const name = s.bst?.subject?.name ?? 'Unknown';
++      const entry = bySubject.get(name) ?? { total: 0, present: 0 };
++      entry.total += 1;
++      if (s.myRecord?.status === 'present') entry.present += 1;
++      bySubject.set(name, entry);
++    }
++    return [...bySubject.entries()]
++        .map(([name, { total, present }]) => ({ name, total, present, percent: total ? (present / total) * 100 : 0 }))
++        .sort((a, b) => a.name.localeCompare(b.name));
++  }, [withStatus]);
++
++  const subjectNames = useMemo(() => [...new Set(withStatus.map((s) => s.bst?.subject?.name ?? 'Unknown'))].sort(), [withStatus]);
++
++  const logRows = useMemo(() => {
++    return withStatus
++        .filter((s) => logFilter === 'both' || s.myRecord?.status === logFilter)
++        .filter((s) => logSubject === 'all' || s.bst?.subject?.name === logSubject)
++        .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate));
++  }, [withStatus, logFilter, logSubject]);
++
++  const now = new Date();
++  const currentMonth = now.getMonth();
++  const currentYear = now.getFullYear();
++  const monthlyStats = useMemo(() => {
++    const inMonth = withStatus.filter((s) => {
++      const d = new Date(s.sessionDate);
++      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
++    });
++    const present = inMonth.filter((s) => s.myRecord?.status === 'present').length;
++    return { total: inMonth.length, present, percent: inMonth.length ? (present / inMonth.length) * 100 : 0 };
++  }, [withStatus, currentMonth, currentYear]);
++
++  const overallStats = useMemo(() => {
++    const present = withStatus.filter((s) => s.myRecord?.status === 'present').length;
++    return { total: withStatus.length, present, percent: withStatus.length ? (present / withStatus.length) * 100 : 0 };
++  }, [withStatus]);
++
++  const TABS: { key: Tab; label: string }[] = [
++    { key: 'subject', label: 'Subject-wise' },
++    { key: 'log', label: 'Log' },
++    { key: 'monthly', label: 'Monthly' },
++    { key: 'overall', label: 'Overall' },
++  ];
++
++  return (
++      <div className="max-w-[900px]">
++        <DashboardHeader title="Attendance" />
++
++        {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
++
++        {!isLoading && children.length === 0 ? (
++            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">
++              No children have been linked to your account yet. Please ask your institute admin to link your child&apos;s profile to your parent account.
++            </div>
++        ) : (
++            <>
++              <div className="mb-5 flex flex-wrap items-center gap-3">
++                {children.length > 1 && (
++                    <select
++                        value={selectedChildId}
++                        onChange={(e) => setSelectedChildId(e.target.value)}
++                        className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold"
++                    >
++                      {children.map((c) => (
++                          <option key={c.student.id} value={c.student.id}>{c.student.name}</option>
++                      ))}
++                    </select>
++                )}
++                <div className="flex gap-1 rounded-lg border border-line bg-white p-1 w-fit">
++                  {TABS.map((t) => (
++                      <button
++                          key={t.key}
++                          onClick={() => setTab(t.key)}
++                          className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
++                              tab === t.key ? 'bg-pine text-white' : 'text-ink-soft hover:bg-paper'
++                          }`}
++                      >
++                        {t.label}
++                      </button>
++                  ))}
++                </div>
++              </div>
++
++              {isLoading ? (
++                  <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading attendance…</div>
++              ) : !withStatus.length ? (
++                  <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">No attendance has been recorded yet.</div>
++              ) : (
++                  <>
++                    {tab === 'subject' && (
++                        <div className="rounded-xl border border-line bg-white p-6 space-y-4">
++                          {subjectStats.map((s) => (
++                              <div key={s.name}>
++                                <div className="mb-1.5 flex justify-between text-sm">
++                                  <span className="font-semibold text-ink">{s.name}</span>
++                                  <span className="text-ink-soft">{s.percent.toFixed(0)}% ({s.present}/{s.total})</span>
++                                </div>
++                                <div className="h-2.5 overflow-hidden rounded-full bg-line">
++                                  <div
++                                      className={`h-full rounded-full ${s.percent >= 75 ? 'bg-pine' : 'bg-saffron-deep'}`}
++                                      style={{ width: `${s.percent}%` }}
++                                  />
++                                </div>
++                              </div>
++                          ))}
++                        </div>
++                    )}
++
++                    {tab === 'log' && (
++                        <div className="rounded-xl border border-line bg-white p-6">
++                          <div className="mb-5 flex flex-wrap items-center gap-4">
++                            <div className="flex items-center gap-3 text-sm">
++                              {(['absent', 'present', 'both'] as const).map((f) => (
++                                  <label key={f} className="flex items-center gap-1.5 capitalize">
++                                    <input type="radio" checked={logFilter === f} onChange={() => setLogFilter(f)} />
++                                    {f}
++                                  </label>
++                              ))}
++                            </div>
++                            <select value={logSubject} onChange={(e) => setLogSubject(e.target.value)} className="ml-auto rounded-md border border-line bg-white px-3 py-1.5 text-sm">
++                              <option value="all">All subjects</option>
++                              {subjectNames.map((n) => <option key={n} value={n}>{n}</option>)}
++                            </select>
++                          </div>
++                          <div className="divide-y divide-line">
++                            {logRows.length ? logRows.map((s) => (
++                                <div key={s.id} className="flex items-center justify-between py-3 text-sm">
++                                  <div>
++                                    <div className="font-semibold text-ink">{s.sessionDate.slice(0, 10)}</div>
++                                    <div className="text-xs text-ink-soft">{s.bst?.subject?.name ?? '—'}</div>
++                                  </div>
++                                  <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${s.myRecord?.status === 'present' ? 'bg-pine/10 text-pine' : 'bg-red-100 text-red-700'}`}>
++                            {s.myRecord?.status}
++                          </span>
++                                </div>
++                            )) : <p className="py-8 text-center text-sm text-ink-soft">No matching records.</p>}
++                          </div>
++                        </div>
++                    )}
++
++                    {tab === 'monthly' && (
++                        <div className="flex items-center gap-8 rounded-xl border border-line bg-white p-8">
++                          <CircularProgress percent={monthlyStats.percent} />
++                          <div className="space-y-2 text-sm">
++                            <div className="flex justify-between gap-8"><span className="text-ink-soft">Current month attendance</span><strong>{monthlyStats.percent.toFixed(0)}%</strong></div>
++                            <div className="flex justify-between gap-8"><span className="text-ink-soft">Sessions present</span><strong>{monthlyStats.present}/{monthlyStats.total}</strong></div>
++                            <div className="flex justify-between gap-8"><span className="text-ink-soft">Month</span><strong>{now.toLocaleString('default', { month: 'long', year: 'numeric' })}</strong></div>
++                          </div>
++                        </div>
++                    )}
++
++                    {tab === 'overall' && (
++                        <div className="flex items-center gap-8 rounded-xl border border-line bg-white p-8">
++                          <CircularProgress percent={overallStats.percent} />
++                          <div className="space-y-2 text-sm">
++                            <div className="flex justify-between gap-8"><span className="text-ink-soft">Overall percentage</span><strong>{overallStats.percent.toFixed(0)}%</strong></div>
++                            <div className="flex justify-between gap-8"><span className="text-ink-soft">Sessions present</span><strong>{overallStats.present}/{overallStats.total}</strong></div>
++                          </div>
++                        </div>
++                    )}
++                  </>
++              )}
++            </>
++        )}
++      </div>
++  );
+ }
+\ No newline at end of file
+diff --git a/src/app/api/attendance/route.ts b/src/app/api/attendance/route.ts
+index 7b83345..f8b03cd 100644
+--- a/src/app/api/attendance/route.ts
++++ b/src/app/api/attendance/route.ts
+@@ -38,9 +38,24 @@ function hideOthersRecords<T extends { records: { studentId: string; status: str
+     return { ...session, records: mine ? [mine] : [], myRecord: mine };
+ }
+ 
++/** Parent equivalent of hideOthersRecords: a parent may have more than one
++ * linked child, so unlike a student's single `myRecord`, we keep the filtered
++ * `records` array (each entry carries `student.name` so the UI can label
++ * which child a row belongs to) plus a `myRecord` convenience field that's
++ * only populated when exactly one linked child appears in this session —
++ * the common case, and the one the existing student-facing tab UI already
++ * knows how to render. */
++function hideRecordsExceptChildren<T extends { records: { studentId: string; status: string; student?: { name: string } }[] }>(
++    session: T,
++    childIds: string[]
++) {
++    const mine = session.records.filter((r) => childIds.includes(r.studentId));
++    return { ...session, records: mine, myRecord: mine.length === 1 ? mine[0] : null };
++}
++
+ export const GET = apiHandler(async (request: NextRequest) => {
+     const user = requireAuth(request);
+-    requireRole(user, 'admin', 'teacher', 'student');
++    requireRole(user, 'admin', 'teacher', 'student', 'parent');
+ 
+     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
+     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
+@@ -60,12 +75,29 @@ export const GET = apiHandler(async (request: NextRequest) => {
+         studentBatchId = self?.batchId ?? '__none__';
+     }
+ 
++    // Read-only: a parent sees attendance for every batch their linked
++    // student(s) belong to — same ParentStudentLink-resolved scope used by
++    // Homework and Materials. `childIds` is used later to filter each
++    // session's records down to just the parent's own children.
++    let childIds: string[] = [];
++    let linkedBatchIds: string[] = [];
++    if (user.role === 'parent') {
++        const links = await prisma.parentStudentLink.findMany({
++            where: { parentId: user.sub, instituteId: user.instituteId },
++            select: { student: { select: { id: true, batchId: true } } },
++        });
++        childIds = links.map((l) => l.student.id);
++        linkedBatchIds = [...new Set(links.map((l) => l.student.batchId).filter((b): b is string => !!b))];
++    }
++
+     let bstFilter: { in: string[] } | undefined;
+-    if (batchId || subjectId || user.role === 'teacher' || user.role === 'student') {
++    if (batchId || subjectId || user.role === 'teacher' || user.role === 'student' || user.role === 'parent') {
+         const matchingBsts = await prisma.batchSubjectTeacher.findMany({
+             where: {
+                 instituteId: user.instituteId,
+-                ...(user.role === 'student' ? { batchId: studentBatchId } : batchId ? { batchId } : {}),
++                ...(user.role === 'student' ? { batchId: studentBatchId } : {}),
++                ...(user.role === 'parent' ? { batchId: { in: linkedBatchIds.length ? linkedBatchIds : ['__none__'] } } : {}),
++                ...(user.role !== 'student' && user.role !== 'parent' && batchId ? { batchId } : {}),
+                 ...(subjectId ? { subjectId } : {}),
+                 ...(user.role === 'teacher' ? { teacherId: user.sub } : {}),
+             },
+@@ -89,14 +121,19 @@ export const GET = apiHandler(async (request: NextRequest) => {
+             ...(bstFilter ? { batchSubjectTeacherId: bstFilter } : {}),
+         },
+         include: {
+-            records: { select: { studentId: true, status: true } },
++            records: { select: { studentId: true, status: true, student: { select: { name: true } } } },
+         },
+         orderBy: { sessionDate: 'desc' },
+     });
+ 
+     const withBst = await attachBst(sessions);
+     const summarized = withBst.map(summarize);
+-    const response = user.role === 'student' ? summarized.map((s) => hideOthersRecords(s, user.sub)) : summarized;
++    const response =
++        user.role === 'student'
++            ? summarized.map((s) => hideOthersRecords(s, user.sub))
++            : user.role === 'parent'
++                ? summarized.map((s) => hideRecordsExceptChildren(s, childIds))
++                : summarized;
+ 
+     return NextResponse.json(response);
+ });
+diff --git a/src/components/dashboard/Sidebar.tsx b/src/components/dashboard/Sidebar.tsx
+index 95b42c8..c1c482e 100644
+--- a/src/components/dashboard/Sidebar.tsx
++++ b/src/components/dashboard/Sidebar.tsx
+@@ -18,7 +18,9 @@ interface NavItem { key: string; label: string; href: string; icon: LucideIcon;
+ // still blocks students entirely at the API layer (see
+ // src/app/api/timetable/route.ts), so students don't get a nav link to a
+ // page that would just show an error. Attendance now supports a student's
+-// own (read-only) view, added alongside a dedicated student UI.
++// own (read-only) view, added alongside a dedicated student UI, and — as of
++// the ParentStudentLink-based scoping added to /api/attendance — a parent's
++// read-only view per linked child too.
+ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+   {
+     label: 'Overview',
+@@ -40,7 +42,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+       { key: 'batches', label: 'Batches', href: '/dashboard/batches', icon: Layers, roles: ['admin'] },
+       { key: 'subjects', label: 'Subjects', href: '/dashboard/subjects', icon: BookOpen, roles: ['admin'] },
+       { key: 'timetable', label: 'Timetable', href: '/dashboard/timetable', icon: Calendar, roles: ['admin', 'teacher'] },
+-      { key: 'attendance', label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher', 'student'] },
++      { key: 'attendance', label: 'Attendance', href: '/dashboard/attendance', icon: ClipboardCheck, roles: ['admin', 'teacher', 'student', 'parent'] },
+       { key: 'materials', label: 'Materials', href: '/dashboard/materials', icon: FileText, roles: ['admin', 'teacher', 'student', 'parent'] },
+       { key: 'homework', label: 'Homework', href: '/dashboard/homework', icon: BookMarked, roles: ['admin', 'teacher', 'student', 'parent'] },
+       { key: 'marks', label: 'Marks', href: '/dashboard/marks', icon: Award, roles: ['admin', 'teacher', 'student'] },
+diff --git a/task.md b/task.md
+index a4dd5e5..626157d 100644
+--- a/task.md
++++ b/task.md
+@@ -1,6 +1,9 @@
+-# Task Checklist — Extend Design Language: Attendance Page
++# Task Checklist — Parent Attendance Access
+ 
+-- [x] `TeacherAttendanceView`: swap manual header for `DashboardHeader`
+-- [x] `StudentAttendanceView`: swap manual header for `DashboardHeader`
++- [x] `attendance/route.ts`: add parent role + ParentStudentLink scoping
++- [x] `attendance/route.ts`: `hideRecordsExceptChildren` helper
++- [x] `attendance/page.tsx`: fix role switch (parent no longer hits teacher view)
++- [x] `attendance/page.tsx`: new `ParentAttendanceView` with child selector
++- [x] `Sidebar.tsx`: add 'parent' to Attendance nav roles
+ - [x] Verify lint / tsc
+ - [x] Update walkthrough.md and LOG.md
+diff --git a/walkthrough.md b/walkthrough.md
+index 741e0b9..1efb40d 100644
+--- a/walkthrough.md
++++ b/walkthrough.md
+@@ -1,18 +1,36 @@
+-# Session Walkthrough — Extend Design Language: Attendance Page
++# Session Walkthrough — Parent Attendance Access
+ 
+ ## Accomplishments
+-- Both attendance views (`TeacherAttendanceView` for admin/teacher, `StudentAttendanceView`
+-  for students) now use the shared `DashboardHeader` component instead of their own
+-  hand-rolled eyebrow+`<h1>` markup — matching the dashboard's greeting/date header exactly.
+-- No other changes: the page's marking grid, search, tabs, and progress visualizations were
+-  already solid and left untouched.
+ 
+-## Verification
++1. **`src/app/api/attendance/route.ts`**: parents can now GET `/api/attendance` — scoped to
++   every batch their linked children belong to (resolved via `ParentStudentLink`, same
++   pattern as Homework/Materials), with each session's `records` array filtered down to only
++   their own children's entries (never a classmate's). Records now carry `student.name` so a
++   parent with multiple kids can tell whose record is whose.
++
++2. **`src/app/(dashboard)/dashboard/attendance/page.tsx`**: fixed the bug where
++   `AttendancePage` only checked `role === 'student'`, silently sending parents into the
++   teacher's attendance-*marking* grid. Added a dedicated `ParentAttendanceView` — the same
++   Subject-wise / Log / Monthly / Overall tabs the student view has, plus a child selector
++   when a parent has more than one linked student.
++
++3. **`Sidebar.tsx`**: Attendance nav item now includes `'parent'` in its roles, so parents get
++   a working nav link to a page that actually works for them.
++
++## Verification Results
+ - `npm run lint`: 0 warnings/errors.
+-- `npx tsc --noEmit`: no new errors in `attendance/page.tsx`.
++- `npx tsc --noEmit`: the new parent-scoping code in `attendance/route.ts` triggers the same
++  class of error as the pre-existing sandbox baseline (Prisma engine binary unreachable here
++  → some inferred types fall back to `any`/`unknown`) — traced line-by-line and confirmed
++  identical in shape to the already-existing `ParentStudentLink` scoping code in
++  `homework/route.ts`. Not a real bug; will type-check cleanly with a locally generated
++  Prisma client.
+ 
+-## Flagged but not fixed (out of scope for this UI-only pass)
+-- `AttendancePage`'s role switch (`user?.role === 'student' ? Student... : Teacher...`) sends
+-  parents into the teacher marking view rather than a read-only view — this is the parent-
+-  access gap noted as deferred pending `ParentStudentLink` field confirmation, not a styling
+-  issue. Left alone here.
++## Key decisions
++- Reused the exact `ParentStudentLink` scoping pattern already established in
++  Homework/Materials rather than inventing a new one, for consistency.
++- Kept `ParentAttendanceView` as its own component (some duplication with
++  `StudentAttendanceView`) rather than a deeper shared-component refactor, to minimize risk
++  of regressing the already-working student view while this couldn't be run/tested live in
++  this sandbox.
++- `marks/page.tsx` parent support is a separate, still-open follow-up — not touched here.
