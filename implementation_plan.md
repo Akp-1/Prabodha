@@ -1,42 +1,36 @@
-# Implementation Plan — Dashboard UI Enhancement, Pass 2
+# Implementation Plan — Parent Marks Access
 
 ## Goal
-Second pass on the role-based dashboard homes: richer visuals + more useful content,
-building on Pass 1 (DashboardHeader, TodayPanel, StatCard polish — already shipped).
+Add parent role support to `marks/page.tsx` — the last of the four pages flagged as missing
+ParentStudentLink-based access (Attendance/Materials/Homework already done; Marks was next).
 
 ## Changes
 
-1. **`src/lib/relative-time.ts`** (new)
-   - `relativeTime(date)` → "2h ago", "Yesterday", "3 days ago", etc. Shared by the
-     activity feed and homework list below.
+1. **`src/app/api/exams/route.ts`**
+   - `requireRole` now includes `'parent'`.
+   - Resolve linked children via `ParentStudentLink` and scope the exam query to their
+     batches — same pattern as Attendance/Homework/Materials.
+   - `marks` select now includes `student: { select: { name: true } }` for multi-child
+     disambiguation.
+   - New `hideMarksExceptChildren` helper (parent equivalent of `hideOthersMarks`): filters
+     each exam's `marks` array down to the parent's own children, sets `myMark` when exactly
+     one child has a mark for that exam.
 
-2. **`ActivityFeed.tsx`** (new, shared)
-   - Renders a list of `{ id, icon, title, subtitle, at }` items with relative timestamps.
-   - Own loading skeleton + empty state.
+2. **`src/app/(dashboard)/dashboard/marks/page.tsx`**
+   - Split into `MarksPage` (role dispatch) → `ParentMarksView` (new) or `ManagedMarksView`
+     (existing admin/teacher/student flow, unchanged in behavior).
+   - `ParentMarksView`: read-only list of exams with the selected child's mark, sourced from
+     `/api/parent-dashboard` (children list) + `/api/exams` (now parent-scoped). Shows a child
+     selector when a parent has more than one linked student.
+   - Both views' manual headers replaced with the shared `DashboardHeader`.
 
-3. **`AdminHome`**
-   - Fetch recent homework, materials, and attendance sessions (already-available endpoints,
-     no new API) and merge into one "Recent activity" feed (latest 6, sorted by date).
-   - Add a progress bar + "X of Y done" to the "Getting started" checklist.
-   - Improve `TodayPanel` empty state with an icon instead of bare text (shared change,
-     benefits all roles).
-
-4. **`TeacherHome`**
-   - Add "Recent activity" feed scoped to their own recently assigned homework + uploaded
-     materials.
-
-5. **`StudentHome`**
-   - Add an "Upcoming homework" list — nearest 4 by `dueDate`, using the homework fetch
-     already in place. Replaces the bare 3-stat-card-only layout.
-
-6. **`ParentHome`**
-   - No structural change this pass (already the richest view). Skip.
+3. **`Sidebar.tsx`**: added `'parent'` to the Marks nav item's roles.
 
 ## Non-goals
-- No new API routes/schema changes — everything is composed from existing endpoints.
-- No fabricated numbers (e.g. no fake "+12% this week" trend text) — only real computed data.
+- No change to `/api/exams/[id]` (grading detail) — parents don't need it; the list view's
+  `myMark`/`marks` is sufficient, same as the existing student view.
 
 ## Verification
-- `npm run lint`, `npx tsc --noEmit` on touched files, `npm run build` (webpack compile step;
-  full type-check may hit the same pre-existing sandbox Prisma-engine limitation noted in
-  Session 17 — not caused by these changes).
+- `npm run lint`, `npx tsc --noEmit` — confirmed the new parent-scoping code in
+  `exams/route.ts` only adds errors of the same pre-existing class already present in that
+  file (sandbox Prisma-engine fallback), file-level error set unchanged from baseline.

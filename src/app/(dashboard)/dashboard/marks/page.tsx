@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Award, Plus, Save, X } from 'lucide-react';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 
 type Exam = {
   id: string;
@@ -14,6 +15,10 @@ type Exam = {
   subject: { id: string; name: string } | null;
   summary: { studentsGraded: number; average: number | null };
   myMark?: { marksObtained: number; remarks: string | null } | null;
+  /** Present (parent-scoped, filtered to linked children) only in the
+   * `/api/exams` list response for the parent role — see
+   * hideMarksExceptChildren in src/app/api/exams/route.ts. */
+  marks?: { studentId: string; marksObtained: number; remarks: string | null; student?: { name: string } }[];
 };
 
 type ExamDetail = Exam & {
@@ -23,8 +28,112 @@ type ExamDetail = Exam & {
 type Batch = { id: string; name: string };
 type Subject = { id: string; name: string };
 type Student = { id: string; name: string };
+interface LinkedChild { student: { id: string; name: string; batch: { name: string } | null } }
 
 export default function MarksPage() {
+  const { user } = useAuth();
+  if (user?.role === 'parent') return <ParentMarksView />;
+  return <ManagedMarksView />;
+}
+
+// ---------------------------------------------------------------------------
+// Parent: read-only view per linked child — picks the selected child's mark
+// out of each exam's (already parent-scoped) `marks` array, the same way the
+// student view already picks out `myMark`. See hideMarksExceptChildren in
+// src/app/api/exams/route.ts for the server-side scoping this relies on.
+// ---------------------------------------------------------------------------
+
+function ParentMarksView() {
+  const [children, setChildren] = useState<LinkedChild[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState('');
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const [childData, examData] = await Promise.all([
+          apiFetch<LinkedChild[]>('/api/parent-dashboard'),
+          apiFetch<Exam[]>('/api/exams'),
+        ]);
+        setChildren(childData);
+        if (childData.length) setSelectedChildId(childData[0].student.id);
+        setExams(examData);
+      } catch (err) {
+        setLoadError(err instanceof ApiClientError ? err.message : 'Failed to load assessments.');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
+  const examsWithChildMark = exams.map((e) => ({
+    ...e,
+    myMark: e.marks?.find((m) => m.studentId === selectedChildId) ?? null,
+  }));
+
+  return (
+      <div className="max-w-[1040px]">
+        <DashboardHeader
+            title="Marks & assessments"
+            action={
+              children.length > 1 ? (
+                  <select
+                      value={selectedChildId}
+                      onChange={(e) => setSelectedChildId(e.target.value)}
+                      className="rounded-md border border-line bg-white px-3 py-2 text-sm font-semibold"
+                  >
+                    {children.map((c) => (
+                        <option key={c.student.id} value={c.student.id}>{c.student.name}</option>
+                    ))}
+                  </select>
+              ) : undefined
+            }
+        />
+        <p className="text-ink-soft mb-6 max-w-[640px]">Results for every graded assessment.</p>
+
+        {loadError && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{loadError}</div>}
+
+        {isLoading ? (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading assessments…</div>
+        ) : children.length === 0 ? (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">
+              No children have been linked to your account yet. Please ask your institute admin to link your child&apos;s profile to your parent account.
+            </div>
+        ) : exams.length ? (
+            <div className="overflow-hidden rounded-xl border border-line bg-white">
+              <div className="divide-y divide-line">
+                {examsWithChildMark.map((exam) => (
+                    <div key={exam.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-pine/10 text-pine"><Award size={17} /></div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm text-ink truncate">{exam.name}</div>
+                          <div className="text-xs text-ink-soft">{exam.subject?.name ?? '—'} · {exam.batch?.name ?? '—'} · {exam.examDate.slice(0, 10)}</div>
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-pine flex-shrink-0">
+                        {exam.myMark ? `${exam.myMark.marksObtained} / ${exam.maxMarks}` : 'Not graded yet'}
+                      </span>
+                    </div>
+                ))}
+              </div>
+            </div>
+        ) : (
+            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">No assessments have been recorded yet.</div>
+        )}
+      </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Admin / Teacher / Student: existing create + grade + self-view flow.
+// ---------------------------------------------------------------------------
+
+function ManagedMarksView() {
   const { user } = useAuth();
   const canManage = user?.role === 'admin' || user?.role === 'teacher';
 
@@ -159,21 +268,20 @@ export default function MarksPage() {
 
   return (
       <div className="max-w-[1040px]">
-        <div className="flex items-start justify-between gap-6 mb-8">
-          <div>
-            <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Academic performance</div>
-            <h1 className="font-display font-semibold text-[32px] tracking-tight">Marks &amp; assessments</h1>
-            <p className="text-ink-soft mt-2 max-w-[640px]">
-              {canManage ? 'Record assessments and enter scores for each learner.' : 'Your results for every assessment, as they are graded.'}
-            </p>
-          </div>
-          {canManage && (
-              <button onClick={() => setShowCreateForm(true)} className="inline-flex items-center gap-2 rounded-md bg-pine px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-deep whitespace-nowrap">
-                <Plus size={17} />
-                Create assessment
-              </button>
-          )}
-        </div>
+        <DashboardHeader
+            title="Marks & assessments"
+            action={
+              canManage ? (
+                  <button onClick={() => setShowCreateForm(true)} className="inline-flex items-center gap-2 rounded-md bg-pine px-4 py-2.5 text-sm font-semibold text-white hover:bg-pine-deep whitespace-nowrap">
+                    <Plus size={17} />
+                    Create assessment
+                  </button>
+              ) : undefined
+            }
+        />
+        <p className="text-ink-soft mb-6 max-w-[640px]">
+          {canManage ? 'Record assessments and enter scores for each learner.' : 'Your results for every assessment, as they are graded.'}
+        </p>
 
         {loadError && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{loadError}</div>}
 

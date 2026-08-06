@@ -38,9 +38,24 @@ function hideOthersRecords<T extends { records: { studentId: string; status: str
     return { ...session, records: mine ? [mine] : [], myRecord: mine };
 }
 
+/** Parent equivalent of hideOthersRecords: a parent may have more than one
+ * linked child, so unlike a student's single `myRecord`, we keep the filtered
+ * `records` array (each entry carries `student.name` so the UI can label
+ * which child a row belongs to) plus a `myRecord` convenience field that's
+ * only populated when exactly one linked child appears in this session —
+ * the common case, and the one the existing student-facing tab UI already
+ * knows how to render. */
+function hideRecordsExceptChildren<T extends { records: { studentId: string; status: string; student?: { name: string } }[] }>(
+    session: T,
+    childIds: string[]
+) {
+    const mine = session.records.filter((r) => childIds.includes(r.studentId));
+    return { ...session, records: mine, myRecord: mine.length === 1 ? mine[0] : null };
+}
+
 export const GET = apiHandler(async (request: NextRequest) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher', 'student');
+    requireRole(user, 'admin', 'teacher', 'student', 'parent');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
@@ -60,12 +75,29 @@ export const GET = apiHandler(async (request: NextRequest) => {
         studentBatchId = self?.batchId ?? '__none__';
     }
 
+    // Read-only: a parent sees attendance for every batch their linked
+    // student(s) belong to — same ParentStudentLink-resolved scope used by
+    // Homework and Materials. `childIds` is used later to filter each
+    // session's records down to just the parent's own children.
+    let childIds: string[] = [];
+    let linkedBatchIds: string[] = [];
+    if (user.role === 'parent') {
+        const links = await prisma.parentStudentLink.findMany({
+            where: { parentId: user.sub, instituteId: user.instituteId },
+            select: { student: { select: { id: true, batchId: true } } },
+        });
+        childIds = links.map((l) => l.student.id);
+        linkedBatchIds = [...new Set(links.map((l) => l.student.batchId).filter((b): b is string => !!b))];
+    }
+
     let bstFilter: { in: string[] } | undefined;
-    if (batchId || subjectId || user.role === 'teacher' || user.role === 'student') {
+    if (batchId || subjectId || user.role === 'teacher' || user.role === 'student' || user.role === 'parent') {
         const matchingBsts = await prisma.batchSubjectTeacher.findMany({
             where: {
                 instituteId: user.instituteId,
-                ...(user.role === 'student' ? { batchId: studentBatchId } : batchId ? { batchId } : {}),
+                ...(user.role === 'student' ? { batchId: studentBatchId } : {}),
+                ...(user.role === 'parent' ? { batchId: { in: linkedBatchIds.length ? linkedBatchIds : ['__none__'] } } : {}),
+                ...(user.role !== 'student' && user.role !== 'parent' && batchId ? { batchId } : {}),
                 ...(subjectId ? { subjectId } : {}),
                 ...(user.role === 'teacher' ? { teacherId: user.sub } : {}),
             },
@@ -89,14 +121,19 @@ export const GET = apiHandler(async (request: NextRequest) => {
             ...(bstFilter ? { batchSubjectTeacherId: bstFilter } : {}),
         },
         include: {
-            records: { select: { studentId: true, status: true } },
+            records: { select: { studentId: true, status: true, student: { select: { name: true } } } },
         },
         orderBy: { sessionDate: 'desc' },
     });
 
     const withBst = await attachBst(sessions);
     const summarized = withBst.map(summarize);
-    const response = user.role === 'student' ? summarized.map((s) => hideOthersRecords(s, user.sub)) : summarized;
+    const response =
+        user.role === 'student'
+            ? summarized.map((s) => hideOthersRecords(s, user.sub))
+            : user.role === 'parent'
+                ? summarized.map((s) => hideRecordsExceptChildren(s, childIds))
+                : summarized;
 
     return NextResponse.json(response);
 });
