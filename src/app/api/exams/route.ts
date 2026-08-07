@@ -30,20 +30,46 @@ function hideOthersMarks<T extends { marks: { studentId: string; marksObtained: 
     return { ...exam, marks: mine ? [mine] : [], myMark: mine };
 }
 
+/** Parent equivalent of hideOthersMarks — same ParentStudentLink-resolved
+ * scoping pattern used by Homework, Materials, and Attendance. A parent may
+ * have more than one linked child, so `marks` stays a filtered array (each
+ * entry carries `student.name` so the UI can label whose score it is) while
+ * `myMark` is only populated when exactly one linked child has a mark for
+ * this exam — the common case, matching what the existing student-facing UI
+ * already knows how to render. */
+function hideMarksExceptChildren<
+    T extends { marks: { studentId: string; marksObtained: number; remarks: string | null; student?: { name: string } }[] }
+>(exam: T, childIds: string[]) {
+    const mine = exam.marks.filter((m) => childIds.includes(m.studentId));
+    return { ...exam, marks: mine, myMark: mine.length === 1 ? mine[0] : null };
+}
+
 export const GET = apiHandler(async (request: NextRequest) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher', 'student');
+    requireRole(user, 'admin', 'teacher', 'student', 'parent');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
 
     let scopeFilter = {};
+    let childIds: string[] = [];
     if (user.role === 'student') {
         const self = await prisma.user.findFirst({
             where: { id: user.sub, instituteId: user.instituteId, role: 'student' },
             select: { batchId: true },
         });
         scopeFilter = { batchId: self?.batchId ?? '__none__' };
+    } else if (user.role === 'parent') {
+        // Read-only: a parent sees exams for every batch their linked
+        // student(s) belong to — same ParentStudentLink-resolved scope used
+        // by Homework, Materials, and Attendance.
+        const links = await prisma.parentStudentLink.findMany({
+            where: { parentId: user.sub, instituteId: user.instituteId },
+            select: { student: { select: { id: true, batchId: true } } },
+        });
+        childIds = links.map((l) => l.student.id);
+        const batchIds = [...new Set(links.map((l) => l.student.batchId).filter((b): b is string => !!b))];
+        scopeFilter = { batchId: { in: batchIds.length ? batchIds : ['__none__'] } };
     }
 
     const exams = await prisma.exam.findMany({
@@ -51,14 +77,22 @@ export const GET = apiHandler(async (request: NextRequest) => {
             instituteId: user.instituteId,
             ...(batchId ? { batchId } : {}),
             ...(subjectId ? { subjectId } : {}),
-            ...(user.role === 'student' ? scopeFilter : await teacherContentScope(user)),
+            ...(user.role === 'student' || user.role === 'parent' ? scopeFilter : await teacherContentScope(user)),
         },
-        include: { ...include, marks: { select: { studentId: true, marksObtained: true, remarks: true } } },
+        include: {
+            ...include,
+            marks: { select: { studentId: true, marksObtained: true, remarks: true, student: { select: { name: true } } } },
+        },
         orderBy: { examDate: 'desc' },
     });
 
     const summarized = exams.map(summarize);
-    const response = user.role === 'student' ? summarized.map((e) => hideOthersMarks(e, user.sub)) : summarized;
+    const response =
+        user.role === 'student'
+            ? summarized.map((e) => hideOthersMarks(e, user.sub))
+            : user.role === 'parent'
+                ? summarized.map((e) => hideMarksExceptChildren(e, childIds))
+                : summarized;
 
     return NextResponse.json(response);
 });

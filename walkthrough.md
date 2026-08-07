@@ -1,37 +1,29 @@
-# Session Walkthrough — Login Page & Auth Flow
+# Session Walkthrough — Parent Marks Access
 
 ## Accomplishments
 
-1. **Auth Context & Hook (`AuthProvider.tsx`)**:
-   - Created `src/components/auth/AuthProvider.tsx` exporting `AuthProvider` and `useAuth()`.
-   - Manages `user` (`id`, `name`, `email`, `role`), `institute` (`id`, `name`, `slug`), `token`, and `loading` states.
-   - Hydrates session on mount by checking `getToken()` and fetching `GET /api/auth/me`.
-   - Saves last used institute code to `localStorage` (`prabodha-last-institute-slug`).
-   - Implements `login()` and `logout()` methods.
+1. **`src/app/api/exams/route.ts`**: parents can now GET `/api/exams` — scoped to every batch
+   their linked children belong to, with each exam's `marks` array filtered to only their own
+   children (never a classmate's), and `student.name` attached for multi-child clarity.
 
-2. **Login Page (`/login`)**:
-   - Built a branded, responsive card UI in `src/app/login/page.tsx`.
-   - Fields: Institute Code / Slug, Email Address, Password, Remember Code checkbox.
-   - Shows inline error alerts and loading spinners on submission.
-   - Automatically redirects authenticated users away from `/login` to `/dashboard`.
+2. **`src/app/(dashboard)/dashboard/marks/page.tsx`**: `MarksPage` now dispatches on role —
+   parents get a new `ParentMarksView` (read-only exam list with the selected child's score, a
+   child selector when there's more than one), everyone else keeps the existing
+   `ManagedMarksView` (create/grade/self-view flow, unchanged). Both now use the shared
+   `DashboardHeader` instead of hand-rolled markup.
 
-3. **Auth Guard & Protected Layout (`DashboardLayout`)**:
-   - Updated `src/app/(dashboard)/layout.tsx` to check `loading` and `user`.
-   - Unauthenticated visitors attempting to access `/dashboard/*` are automatically redirected to `/login`.
-   - Displays a clean "Authenticating..." loading state while verifying credentials.
-
-4. **Root Landing Page (`/`)**:
-   - Updated `src/app/page.tsx` to inspect auth state: redirects logged-in users to `/dashboard` and unauthenticated users to `/login`.
-
-5. **TopBar Wiring (`TopBar.tsx`)**:
-   - Displays authenticated institute name, user name, and role badge.
-   - Connected "Sign out" button directly to `logout()`.
+3. **`Sidebar.tsx`**: Marks nav item now includes `'parent'`.
 
 ## Verification Results
+- `npm run lint`: 0 warnings/errors.
+- `npx tsc --noEmit`: new parent-scoping code in `exams/route.ts` only adds errors of the
+  same class already present in that file (pre-existing sandbox Prisma-engine fallback) —
+  file-level error set is identical to the established baseline.
 
-- **`npm run build`**: Executed cleanly with 0 TypeScript compilation errors and 0 syntax errors across all 16 static/dynamic routes.
-- **Route outputs verified**:
-  - `/login`: 3.62 kB static page
-  - `/`: 1.85 kB static page
-  - `/dashboard/*`: 10 protected routes
-  - `/api/*`: 21 dynamic route handlers
+## Key decisions
+- Reused the exact `ParentStudentLink` scoping + "hide except mine" pattern from
+  Attendance/Homework/Materials for consistency across all four pages.
+- Kept `ParentMarksView` separate from `ManagedMarksView` rather than threading parent logic
+  into the existing component, to avoid touching the working admin/teacher/student flow.
+- This closes out all four pages flagged in memory as missing parent access — Attendance,
+  Materials, Homework, and now Marks all support the parent role.

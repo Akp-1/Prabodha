@@ -32,6 +32,12 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
         });
         return self?.batchId === material.batchId;
     }
+    if (user.role === 'parent') {
+        const link = await prisma.parentStudentLink.findFirst({
+            where: { parentId: user.sub, instituteId: user.instituteId, student: { batchId: material.batchId } },
+        });
+        return !!link;
+    }
     const assigned = await prisma.batchSubjectTeacher.findFirst({
         where: { teacherId: user.sub, instituteId: user.instituteId, batchId: material.batchId, subjectId: material.subjectId },
     });
@@ -40,7 +46,7 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
 
 export const GET = apiHandler(async (request: NextRequest, { params }) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher', 'student');
+    requireRole(user, 'admin', 'teacher', 'student', 'parent');
     const id = params.id;
 
     const material = await findMaterial(id, user.instituteId);

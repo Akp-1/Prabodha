@@ -1,8 +1,15 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Users, GraduationCap, Layers, Calendar, BookMarked, Award, ClipboardCheck, Check } from 'lucide-react';
-import { StatCard } from '@/components/dashboard/StatCard';
+import {
+    Users, GraduationCap, Layers, Calendar, BookMarked, Award, ClipboardCheck, Check,
+    ClipboardList, FileText, ClipboardEdit, type LucideIcon,
+} from 'lucide-react';
+import { StatCard, StatCardSkeleton } from '@/components/dashboard/StatCard';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { TodayPanel, type TodaySlot } from '@/components/dashboard/TodayPanel';
+import { ActivityFeed, type ActivityItem } from '@/components/dashboard/ActivityFeed';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -18,8 +25,32 @@ const INITIAL_CHECKLIST = [
   { key: 'attendance', label: "Record today's attendance", done: false },
 ];
 
+function QuickLinks({ items }: { items: { label: string; href: string; icon: LucideIcon }[] }) {
+    return (
+        <div className="bg-white border border-line rounded-xl px-6 py-6">
+            <div className="font-display font-semibold text-[17px] mb-3">Quick links</div>
+            <div className="flex flex-col gap-1">
+                {items.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex items-center gap-3 py-2 px-1.5 rounded-lg text-[14px] font-medium text-ink hover:bg-paper transition-colors"
+                    >
+                        <span className="w-7 h-7 rounded-md bg-pine/[0.07] flex items-center justify-center flex-shrink-0">
+                            <item.icon size={14} strokeWidth={1.8} className="text-pine" />
+                        </span>
+                        {item.label}
+                    </Link>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function AdminHome() {
     const [stats, setStats] = useState({ students: 0, teachers: 0, batches: 0, todaySessions: 0 });
+    const [todaySlots, setTodaySlots] = useState<TodaySlot[]>([]);
+    const [activity, setActivity] = useState<ActivityItem[]>([]);
     const [checklist, setChecklist] = useState(INITIAL_CHECKLIST);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -27,24 +58,52 @@ function AdminHome() {
     useEffect(() => {
         (async () => {
             try {
-                const [students, teachers, batches, slots] = await Promise.all([
+                const [students, teachers, batches, slots, homework, materials, sessions] = await Promise.all([
                     apiFetch<unknown[]>('/api/students'),
                     apiFetch<unknown[]>('/api/teachers'),
                     apiFetch<unknown[]>('/api/batches'),
-                    apiFetch<{ dayOfWeek: number }[]>('/api/timetable'),
+                    apiFetch<(TodaySlot & { dayOfWeek: number })[]>('/api/timetable'),
+                    apiFetch<{ id: string; title: string; createdAt: string; subject: { name: string }; batch: { name: string } }[]>('/api/homework'),
+                    apiFetch<{ id: string; title: string; createdAt: string; subject: { name: string }; batch: { name: string } }[]>('/api/materials'),
+                    apiFetch<{ id: string; submittedAt: string; bst: { subject: { name: string }; batch: { name: string } } | null }[]>('/api/attendance'),
                 ]);
+                const today = slots.filter((s) => s.dayOfWeek === todayDayOfWeek());
                 setStats({
                     students: students.length,
                     teachers: teachers.length,
                     batches: batches.length,
-                    todaySessions: slots.filter((s) => s.dayOfWeek === todayDayOfWeek()).length,
+                    todaySessions: today.length,
                 });
+                setTodaySlots(today);
+
+                const feed: ActivityItem[] = [
+                    ...homework.map((h) => ({
+                        id: `hw-${h.id}`, icon: BookMarked,
+                        title: `Homework assigned: ${h.title}`,
+                        subtitle: `${h.subject.name} · ${h.batch.name}`, at: h.createdAt,
+                    })),
+                    ...materials.map((m) => ({
+                        id: `mat-${m.id}`, icon: FileText,
+                        title: `Material uploaded: ${m.title}`,
+                        subtitle: `${m.subject.name} · ${m.batch.name}`, at: m.createdAt,
+                    })),
+                    ...sessions.filter((s) => s.bst).map((s) => ({
+                        id: `att-${s.id}`, icon: ClipboardEdit,
+                        title: 'Attendance marked',
+                        subtitle: `${s.bst!.subject.name} · ${s.bst!.batch.name}`, at: s.submittedAt,
+                    })),
+                ]
+                    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+                    .slice(0, 6);
+                setActivity(feed);
+
                 // Auto-check checklist items based on real data
                 setChecklist((list) =>
                   list.map((item) => {
                     if (item.key === 'batch' && batches.length > 0) return { ...item, done: true };
                     if (item.key === 'teachers' && teachers.length > 0) return { ...item, done: true };
                     if (item.key === 'students' && students.length > 0) return { ...item, done: true };
+                    if (item.key === 'attendance' && sessions.length > 0) return { ...item, done: true };
                     return item;
                   })
                 );
@@ -60,64 +119,133 @@ function AdminHome() {
       setChecklist((list) => list.map((item) => (item.key === key ? { ...item, done: !item.done } : item)));
     };
 
+    const doneCount = checklist.filter((i) => i.done).length;
+    const progressPct = Math.round((doneCount / checklist.length) * 100);
+
     return (
-        <>
-            <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Welcome back</div>
-            <h1 className="font-display font-semibold text-[32px] tracking-tight mb-[30px]">Institute overview</h1>
-
-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
-
-            <div className="grid grid-cols-2 gap-[18px] mb-[30px] max-w-[720px]">
-                <StatCard label="Total Learners" value={isLoading ? '…' : stats.students} icon={Users} />
-                <StatCard label="Faculty Members" value={isLoading ? '…' : stats.teachers} icon={GraduationCap} />
-                <StatCard label="Active Batches" value={isLoading ? '…' : stats.batches} icon={Layers} />
-                <StatCard label="Today's Sessions" value={isLoading ? '…' : stats.todaySessions} icon={Calendar} />
-            </div>
-
-            {/* Getting Started checklist (from contributor) */}
-            <div className="bg-white border border-line rounded-xl px-8 py-[30px] max-w-[720px]">
-              <div className="font-display font-semibold text-[21px] mb-[18px]">Getting started</div>
-              <div className="flex flex-col gap-1">
-                {checklist.map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => toggle(item.key)}
-                    className="flex items-center gap-3 py-[11px] px-1.5 rounded-lg text-left w-full text-[15px] hover:bg-paper transition-colors"
-                  >
-                    <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border ${
-                        item.done ? 'bg-saffron border-saffron' : 'border-line'
-                      }`}
+        <div className="max-w-[1400px]">
+            <DashboardHeader
+                title="Institute overview"
+                action={
+                    <Link
+                        href="/dashboard/attendance"
+                        className="inline-flex items-center gap-2 bg-pine text-white text-sm font-medium px-4 py-2.5 rounded-lg hover:bg-pine-deep transition-colors"
                     >
-                      {item.done && <Check size={13} strokeWidth={3} className="text-pine-deep" />}
-                    </span>
-                    <span className={item.done ? 'text-ink-soft line-through' : 'text-ink'}>{item.label}</span>
-                  </button>
-                ))}
-              </div>
+                        <ClipboardList size={16} strokeWidth={2} />
+                        Mark attendance
+                    </Link>
+                }
+            />
+
+            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
+
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[18px] items-start">
+                <div className="min-w-0">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-[18px] mb-[18px]">
+                        {isLoading ? (
+                            <>
+                                <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <StatCard label="Total Learners" value={stats.students} icon={Users} delay={0} />
+                                <StatCard label="Faculty Members" value={stats.teachers} icon={GraduationCap} delay={60} />
+                                <StatCard label="Active Batches" value={stats.batches} icon={Layers} delay={120} />
+                                <StatCard
+                                    label="Today's Sessions" value={stats.todaySessions} icon={Calendar} delay={180}
+                                    hint={stats.todaySessions > 0 ? `${stats.todaySessions} on the schedule` : 'Nothing scheduled'}
+                                />
+                            </>
+                        )}
+                    </div>
+
+                    {/* Getting Started checklist (from contributor) */}
+                    <div className="bg-white border border-line rounded-xl px-8 py-[30px] mb-[18px]">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="font-display font-semibold text-[21px]">Getting started</div>
+                        <span className="text-[12px] font-medium text-ink-soft">{doneCount}/{checklist.length}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-paper overflow-hidden mb-[18px]">
+                        <div className="h-full rounded-full bg-saffron transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                        {checklist.map((item) => (
+                          <button
+                            key={item.key}
+                            onClick={() => toggle(item.key)}
+                            className="flex items-center gap-3 py-[11px] px-1.5 rounded-lg text-left w-full text-[15px] hover:bg-paper transition-colors"
+                          >
+                            <span
+                              className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 border ${
+                                item.done ? 'bg-saffron border-saffron' : 'border-line'
+                              }`}
+                            >
+                              {item.done && <Check size={13} strokeWidth={3} className="text-pine-deep" />}
+                            </span>
+                            <span className={item.done ? 'text-ink-soft line-through' : 'text-ink'}>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <ActivityFeed items={activity} isLoading={isLoading} />
+                </div>
+
+                <div className="flex flex-col gap-[18px]">
+                    <TodayPanel slots={todaySlots} isLoading={isLoading} />
+                    <QuickLinks
+                        items={[
+                            { label: 'Add a learner', href: '/dashboard/students', icon: Users },
+                            { label: 'Add faculty', href: '/dashboard/teachers', icon: GraduationCap },
+                            { label: 'New batch', href: '/dashboard/batches', icon: Layers },
+                            { label: 'Weekly timetable', href: '/dashboard/timetable', icon: Calendar },
+                        ]}
+                    />
+                </div>
             </div>
-        </>
+        </div>
     );
 }
 
 function TeacherHome() {
     const [stats, setStats] = useState({ assignments: 0, todaySessions: 0, pendingHomework: 0 });
+    const [todaySlots, setTodaySlots] = useState<TodaySlot[]>([]);
+    const [activity, setActivity] = useState<ActivityItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         (async () => {
             try {
-                const [assignments, slots, homework] = await Promise.all([
+                const [assignments, slots, homework, materials] = await Promise.all([
                     apiFetch<unknown[]>('/api/assignments'),
-                    apiFetch<{ dayOfWeek: number }[]>('/api/timetable'),
-                    apiFetch<{ summary: { pending: number } }[]>('/api/homework'),
+                    apiFetch<(TodaySlot & { dayOfWeek: number })[]>('/api/timetable'),
+                    apiFetch<{ id: string; title: string; createdAt: string; summary: { pending: number }; subject: { name: string }; batch: { name: string }; assigner: { id: string } }[]>('/api/homework'),
+                    apiFetch<{ id: string; title: string; createdAt: string; subject: { name: string }; batch: { name: string }; uploader: { id: string } }[]>('/api/materials'),
                 ]);
+                const today = slots.filter((s) => s.dayOfWeek === todayDayOfWeek());
                 setStats({
                     assignments: assignments.length,
-                    todaySessions: slots.filter((s) => s.dayOfWeek === todayDayOfWeek()).length,
+                    todaySessions: today.length,
                     pendingHomework: homework.reduce((sum, h) => sum + h.summary.pending, 0),
                 });
+                setTodaySlots(today);
+
+                const feed: ActivityItem[] = [
+                    ...homework.map((h) => ({
+                        id: `hw-${h.id}`, icon: BookMarked,
+                        title: `Homework assigned: ${h.title}`,
+                        subtitle: `${h.subject.name} · ${h.batch.name}`, at: h.createdAt,
+                    })),
+                    ...materials.map((m) => ({
+                        id: `mat-${m.id}`, icon: FileText,
+                        title: `Material uploaded: ${m.title}`,
+                        subtitle: `${m.subject.name} · ${m.batch.name}`, at: m.createdAt,
+                    })),
+                ]
+                    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+                    .slice(0, 6);
+                setActivity(feed);
             } catch (err) {
                 setError(err instanceof ApiClientError ? err.message : 'Failed to load your overview.');
             } finally {
@@ -127,23 +255,48 @@ function TeacherHome() {
     }, []);
 
     return (
-        <>
-            <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Welcome back</div>
-            <h1 className="font-display font-semibold text-[32px] tracking-tight mb-[30px]">Your classes</h1>
+        <div className="max-w-[1400px]">
+            <DashboardHeader title="Your classes" />
 
-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
+            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
 
-            <div className="grid grid-cols-3 gap-[18px] max-w-[720px]">
-                <StatCard label="Assigned Classes" value={isLoading ? '…' : stats.assignments} icon={GraduationCap} />
-                <StatCard label="Sessions Today" value={isLoading ? '…' : stats.todaySessions} icon={Calendar} />
-                <StatCard label="Homework Pending" value={isLoading ? '…' : stats.pendingHomework} icon={BookMarked} />
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[18px] items-start">
+                <div className="min-w-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px] mb-[18px]">
+                        {isLoading ? (
+                            <>
+                                <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <StatCard label="Assigned Classes" value={stats.assignments} icon={GraduationCap} delay={0} />
+                                <StatCard label="Sessions Today" value={stats.todaySessions} icon={Calendar} delay={60} />
+                                <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} delay={120} />
+                            </>
+                        )}
+                    </div>
+
+                    <ActivityFeed items={activity} isLoading={isLoading} />
+                </div>
+
+                <div className="flex flex-col gap-[18px]">
+                    <TodayPanel slots={todaySlots} isLoading={isLoading} />
+                    <QuickLinks
+                        items={[
+                            { label: 'Mark attendance', href: '/dashboard/attendance', icon: ClipboardList },
+                            { label: 'Assign homework', href: '/dashboard/homework', icon: BookMarked },
+                            { label: 'Upload materials', href: '/dashboard/materials', icon: FileText },
+                        ]}
+                    />
+                </div>
             </div>
-        </>
+        </div>
     );
 }
 
 function StudentHome() {
     const [stats, setStats] = useState({ pendingHomework: 0, materials: 0, gradedExams: 0 });
+    const [upcoming, setUpcoming] = useState<{ id: string; title: string; subject: string; dueDate: string }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -151,7 +304,7 @@ function StudentHome() {
         (async () => {
             try {
                 const [homework, materials, exams] = await Promise.all([
-                    apiFetch<{ statuses: { status: string }[] }[]>('/api/homework'),
+                    apiFetch<{ id: string; title: string; dueDate: string; subject: { name: string }; statuses: { status: string }[] }[]>('/api/homework'),
                     apiFetch<unknown[]>('/api/materials'),
                     apiFetch<{ myMark?: unknown }[]>('/api/exams'),
                 ]);
@@ -160,6 +313,13 @@ function StudentHome() {
                     materials: materials.length,
                     gradedExams: exams.filter((e) => e.myMark).length,
                 });
+                setUpcoming(
+                    homework
+                        .filter((h) => h.statuses[0]?.status !== 'completed')
+                        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                        .slice(0, 4)
+                        .map((h) => ({ id: h.id, title: h.title, subject: h.subject.name, dueDate: h.dueDate }))
+                );
             } catch (err) {
                 setError(err instanceof ApiClientError ? err.message : 'Failed to load your overview.');
             } finally {
@@ -169,18 +329,72 @@ function StudentHome() {
     }, []);
 
     return (
-        <>
-            <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Welcome back</div>
-            <h1 className="font-display font-semibold text-[32px] tracking-tight mb-[30px]">Your learning space</h1>
+        <div className="max-w-[1400px]">
+            <DashboardHeader title="Your learning space" />
 
-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
+            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
 
-            <div className="grid grid-cols-3 gap-[18px] max-w-[720px]">
-                <StatCard label="Homework Pending" value={isLoading ? '…' : stats.pendingHomework} icon={BookMarked} />
-                <StatCard label="Study Materials" value={isLoading ? '…' : stats.materials} icon={ClipboardCheck} />
-                <StatCard label="Assessments Graded" value={isLoading ? '…' : stats.gradedExams} icon={Award} />
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-[18px] items-start">
+                <div className="min-w-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-[18px] mb-[18px]">
+                        {isLoading ? (
+                            <>
+                                <StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} delay={0} />
+                                <StatCard label="Study Materials" value={stats.materials} icon={ClipboardCheck} delay={60} />
+                                <StatCard label="Assessments Graded" value={stats.gradedExams} icon={Award} delay={120} />
+                            </>
+                        )}
+                    </div>
+
+                    <div className="bg-white border border-line rounded-xl px-8 py-[30px]">
+                        <div className="font-display font-semibold text-[21px] mb-[18px]">Upcoming homework</div>
+                        {isLoading ? (
+                            <div className="flex flex-col gap-3">
+                                {[1, 2, 3].map((i) => <div key={i} className="h-[52px] rounded-lg bg-paper animate-pulse" />)}
+                            </div>
+                        ) : upcoming.length === 0 ? (
+                            <div className="text-sm text-ink-soft py-2">Nothing pending — you&apos;re all caught up.</div>
+                        ) : (
+                            <div className="flex flex-col gap-1">
+                                {upcoming.map((h) => {
+                                    const daysLeft = Math.ceil((new Date(h.dueDate).getTime() - Date.now()) / 86400000);
+                                    const overdue = daysLeft < 0;
+                                    return (
+                                        <div key={h.id} className="flex items-center gap-3 py-2.5 px-1.5 rounded-lg">
+                                            <span className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${overdue ? 'bg-red-50' : 'bg-pine/[0.07]'}`}>
+                                                <BookMarked size={14} strokeWidth={1.8} className={overdue ? 'text-red-500' : 'text-pine'} />
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-[14px] font-medium text-ink truncate">{h.title}</div>
+                                                <div className="text-[12px] text-ink-soft truncate">{h.subject}</div>
+                                            </div>
+                                            <div className={`text-[11.5px] font-medium flex-shrink-0 ${overdue ? 'text-red-500' : 'text-ink-soft'}`}>
+                                                {overdue ? 'Overdue' : daysLeft === 0 ? 'Due today' : `${daysLeft}d left`}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-[18px]">
+                    <QuickLinks
+                        items={[
+                            { label: 'View homework', href: '/dashboard/homework', icon: BookMarked },
+                            { label: 'Study materials', href: '/dashboard/materials', icon: ClipboardCheck },
+                            { label: 'My marks', href: '/dashboard/marks', icon: Award },
+                            { label: 'My attendance', href: '/dashboard/attendance', icon: ClipboardList },
+                        ]}
+                    />
+                </div>
             </div>
-        </>
+        </div>
     );
 }
 
@@ -247,14 +461,13 @@ function ParentHome() {
     }, []);
 
     return (
-        <>
-            <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Welcome back</div>
-            <h1 className="font-display font-semibold text-[32px] tracking-tight mb-[30px]">Parent dashboard</h1>
+        <div className="max-w-[1400px]">
+            <DashboardHeader title="Parent dashboard" />
 
-            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
+            {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</div>}
 
             {isLoading ? (
-                <div className="max-w-[720px] space-y-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-[18px]">
                     {[1, 2].map((i) => (
                         <div key={i} className="bg-white border border-line rounded-xl h-[200px] animate-pulse" />
                     ))}
@@ -264,7 +477,7 @@ function ParentHome() {
                     No children have been linked to your account yet. Please ask your institute admin to link your child&apos;s profile to your parent account.
                 </div>
             ) : (
-                <div className="space-y-6 max-w-[820px]">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-[18px] items-start">
                     {children.map((child) => (
                         <div key={child.student.id} className="bg-white border border-line rounded-xl overflow-hidden">
                             {/* Header */}
@@ -325,7 +538,7 @@ function ParentHome() {
                     ))}
                 </div>
             )}
-        </>
+        </div>
     );
 }
 

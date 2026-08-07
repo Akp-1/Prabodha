@@ -22,7 +22,7 @@ async function teacherBatchSubjectPairs(teacherId: string, instituteId: string) 
 
 export const GET = apiHandler(async (request: NextRequest) => {
     const user = requireAuth(request);
-    requireRole(user, 'admin', 'teacher', 'student');
+    requireRole(user, 'admin', 'teacher', 'student', 'parent');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
@@ -45,6 +45,15 @@ export const GET = apiHandler(async (request: NextRequest) => {
             select: { batchId: true },
         });
         scopeFilter = { batchId: self?.batchId ?? '__none__' };
+    } else if (user.role === 'parent') {
+        // Read-only: same ParentStudentLink-resolved batch scope used for
+        // Homework's parent branch.
+        const links = await prisma.parentStudentLink.findMany({
+            where: { parentId: user.sub, instituteId: user.instituteId },
+            select: { student: { select: { batchId: true } } },
+        });
+        const batchIds = [...new Set(links.map((l) => l.student.batchId).filter((b): b is string => !!b))];
+        scopeFilter = { batchId: { in: batchIds.length ? batchIds : ['__none__'] } };
     }
 
     const materials = await prisma.studyMaterial.findMany({

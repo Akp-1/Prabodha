@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CalendarClock, CheckCircle2, Circle, Plus, X } from 'lucide-react';
+import { CalendarClock, Check, CheckCircle2, ChevronDown, Circle, Plus, X } from 'lucide-react';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
-type StatusEntry = { studentId: string; status: 'pending' | 'completed' };
+type StatusEntry = { studentId: string; status: 'pending' | 'completed'; student?: { id: string; name: string } };
 
 type Homework = {
   id: string;
   title: string;
   description: string | null;
   dueDate: string;
+  batchId?: string;
   batch: { id: string; name: string } | null;
   subject: { id: string; name: string } | null;
   assigner: { id: string; name: string } | null;
@@ -21,6 +22,7 @@ type Homework = {
 
 type Batch = { id: string; name: string };
 type Subject = { id: string; name: string };
+type ParentLink = { student: { id: string; name: string; batchId: string | null } };
 
 function isOverdue(dueDate: string) {
   return new Date(dueDate) < new Date(new Date().toDateString());
@@ -29,7 +31,9 @@ function isOverdue(dueDate: string) {
 export default function HomeworkPage() {
   const { user } = useAuth();
   const canManage = user?.role === 'admin' || user?.role === 'teacher';
+  const isTeacher = user?.role === 'teacher';
   const isStudent = user?.role === 'student';
+  const isParent = user?.role === 'parent';
 
   const [homework, setHomework] = useState<Homework[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +49,16 @@ export default function HomeworkPage() {
   const [batchId, setBatchId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [dueDate, setDueDate] = useState('');
+
+  // Teacher grading: which row is expanded, and its detailed roster (with
+  // student names) fetched on demand from GET /api/homework/[id] — the list
+  // endpoint only returns { studentId, status }, not names.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [rosterById, setRosterById] = useState<Record<string, StatusEntry[]>>({});
+  const [isLoadingRoster, setIsLoadingRoster] = useState(false);
+
+  // Parent: linked students, so homework can be attributed to "your child".
+  const [parentLinks, setParentLinks] = useState<ParentLink[]>([]);
 
   async function load() {
     setIsLoading(true);
@@ -78,6 +92,74 @@ export default function HomeworkPage() {
       }
     })();
   }, [canManage]);
+
+  useEffect(() => {
+    if (!isParent) return;
+    (async () => {
+      try {
+        const links = await apiFetch<ParentLink[]>('/api/parent-links');
+        setParentLinks(links);
+      } catch {
+        // Non-fatal — the list will just show batch/subject without a "for <child>" label.
+      }
+    })();
+  }, [isParent]);
+
+  // Teacher grading: expand a row and fetch its full roster (with names) on
+  // demand, rather than fetching every homework item's roster up front.
+  async function toggleExpand(hw: Homework) {
+    if (expandedId === hw.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(hw.id);
+    if (rosterById[hw.id]) return;
+    setIsLoadingRoster(true);
+    try {
+      const detail = await apiFetch<Homework>(`/api/homework/${hw.id}`);
+      setRosterById((current) => ({ ...current, [hw.id]: detail.statuses }));
+    } catch (err) {
+      setLoadError(err instanceof ApiClientError ? err.message : 'Failed to load the student roster.');
+    } finally {
+      setIsLoadingRoster(false);
+    }
+  }
+
+  async function toggleGrade(hw: Homework, studentId: string, current: 'pending' | 'completed') {
+    const next = current === 'completed' ? 'pending' : 'completed';
+    setRosterById((c) => ({
+      ...c,
+      [hw.id]: (c[hw.id] ?? []).map((s) => (s.studentId === studentId ? { ...s, status: next } : s)),
+    }));
+    setHomework((list) =>
+        list.map((h) =>
+            h.id !== hw.id
+                ? h
+                : {
+                  ...h,
+                  summary: {
+                    total: h.summary.total,
+                    completed: h.summary.completed + (next === 'completed' ? 1 : -1),
+                    pending: h.summary.pending + (next === 'completed' ? -1 : 1),
+                  },
+                }
+        )
+    );
+    try {
+      await apiFetch(`/api/homework/${hw.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ statuses: [{ studentId, status: next }] }),
+      });
+    } catch (err) {
+      setLoadError(err instanceof ApiClientError ? err.message : 'Failed to update status — refreshing.');
+      await load();
+      setRosterById((c) => {
+        const next2 = { ...c };
+        delete next2[hw.id];
+        return next2;
+      });
+    }
+  }
 
   function close() {
     setTitle('');
@@ -144,7 +226,11 @@ export default function HomeworkPage() {
             <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Learning workspace</div>
             <h1 className="font-display font-semibold text-[32px] tracking-tight">Homework</h1>
             <p className="text-ink-soft mt-2 max-w-[640px]">
-              {canManage ? 'Assign work with a clear due date and track who has completed it.' : 'Everything assigned to your batch, and what you still owe.'}
+              {canManage
+                  ? 'Assign work with a clear due date and track who has completed it.'
+                  : isParent
+                      ? "Everything assigned to your child's batch, and their completion status."
+                      : 'Everything assigned to your batch, and what you still owe.'}
             </p>
           </div>
           {canManage && (
@@ -165,34 +251,81 @@ export default function HomeworkPage() {
                 {homework.map((hw) => {
                   const mine = user ? hw.statuses.find((s) => s.studentId === user.id) : undefined;
                   const overdue = isOverdue(hw.dueDate);
+                  const myChild = isParent
+                      ? parentLinks.find((l) => l.student.batchId === (hw.batchId ?? hw.batch?.id))?.student
+                      : undefined;
+                  const childStatus = myChild ? hw.statuses.find((s) => s.studentId === myChild.id) : undefined;
+                  const isExpanded = expandedId === hw.id;
+                  const roster = rosterById[hw.id];
+
                   return (
-                      <div key={hw.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {isStudent && (
-                              <button onClick={() => toggleMine(hw)} aria-label="Toggle completion" className="flex-shrink-0 text-pine">
-                                {mine?.status === 'completed' ? <CheckCircle2 size={22} /> : <Circle size={22} className="text-ink-soft" />}
-                              </button>
-                          )}
-                          <div className="min-w-0">
-                            <div className="font-semibold text-sm text-ink truncate">{hw.title}</div>
-                            <div className="text-xs text-ink-soft">
-                              {hw.subject?.name ?? '—'} · {hw.batch?.name ?? '—'}
-                              {!isStudent && hw.assigner && <> · {hw.assigner.name}</>}
+                      <div key={hw.id}>
+                        <div
+                            onClick={isTeacher ? () => toggleExpand(hw) : undefined}
+                            className={`flex items-center justify-between gap-4 px-5 py-4 ${isTeacher ? 'cursor-pointer' : ''}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {isStudent && (
+                                <button onClick={() => toggleMine(hw)} aria-label="Toggle completion" className="flex-shrink-0 text-pine">
+                                  {mine?.status === 'completed' ? <CheckCircle2 size={22} /> : <Circle size={22} className="text-ink-soft" />}
+                                </button>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-semibold text-sm text-ink truncate">{hw.title}</div>
+                              <div className="text-xs text-ink-soft">
+                                {hw.subject?.name ?? '—'} · {hw.batch?.name ?? '—'}
+                                {!isStudent && !isParent && hw.assigner && <> · {hw.assigner.name}</>}
+                                {isParent && myChild && <> · for {myChild.name}</>}
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center gap-4 flex-shrink-0">
+                      <span className={overdue && !(mine?.status === 'completed') ? 'inline-flex items-center gap-1 text-xs font-semibold text-red-600' : 'inline-flex items-center gap-1 text-xs font-semibold text-ink-soft'}>
+                        <CalendarClock size={13} />
+                        Due {hw.dueDate.slice(0, 10)}
+                      </span>
+                            {isParent && childStatus && (
+                                <span className={`text-xs font-bold uppercase ${childStatus.status === 'completed' ? 'text-pine' : 'text-saffron-deep'}`}>
+                            {childStatus.status}
+                          </span>
+                            )}
+                            {canManage && (
+                                <span className="text-xs font-semibold text-pine">{hw.summary.completed}/{hw.summary.total} done</span>
+                            )}
+                            {canManage && (
+                                <button onClick={(e) => { e.stopPropagation(); remove(hw.id); }} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
+                            )}
+                            {isTeacher && (
+                                <ChevronDown size={16} className={`text-ink-soft transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 flex-shrink-0">
-                    <span className={overdue && !(mine?.status === 'completed') ? 'inline-flex items-center gap-1 text-xs font-semibold text-red-600' : 'inline-flex items-center gap-1 text-xs font-semibold text-ink-soft'}>
-                      <CalendarClock size={13} />
-                      Due {hw.dueDate.slice(0, 10)}
-                    </span>
-                          {canManage && (
-                              <span className="text-xs font-semibold text-pine">{hw.summary.completed}/{hw.summary.total} done</span>
-                          )}
-                          {canManage && (
-                              <button onClick={() => remove(hw.id)} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
-                          )}
-                        </div>
+
+                        {isTeacher && isExpanded && (
+                            <div className="border-t border-line bg-paper px-5 py-4">
+                              {!roster ? (
+                                  <div className="py-3 text-center text-sm text-ink-soft">{isLoadingRoster ? 'Loading roster…' : 'No roster available.'}</div>
+                              ) : (
+                                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                    {roster.map((s) => {
+                                      const completed = s.status === 'completed';
+                                      return (
+                                          <button
+                                              key={s.studentId}
+                                              onClick={() => toggleGrade(hw, s.studentId, s.status)}
+                                              className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                                                  completed ? 'border-pine/30 bg-pine/5' : 'border-line bg-white'
+                                              }`}
+                                          >
+                                            <span className="truncate">{s.student?.name ?? s.studentId}</span>
+                                            {completed && <Check size={14} className="text-pine flex-shrink-0" />}
+                                          </button>
+                                      );
+                                    })}
+                                  </div>
+                              )}
+                            </div>
+                        )}
                       </div>
                   );
                 })}

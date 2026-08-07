@@ -908,3 +908,180 @@ UI, and a documentation-debt correction pass
 ### Key decisions
 - ...
 -->
+
+## Session 17 — 2026-08-05
+
+**Focus:** Dashboard UI enhancement (role-based homes: Admin/Teacher/Student/Parent)
+
+### What was done
+- Enhanced `StatCard` with icon chips, hover lift, staggered mount animation, and a new
+  `StatCardSkeleton` loading state.
+- Added shared `DashboardHeader` (time-aware greeting + date + optional action slot) and
+  `TodayPanel` (today's timetable sessions) components, replacing duplicated header markup
+  across all four role dashboards.
+- `AdminHome` gained a "Mark attendance" quick action and a `TodayPanel`.
+- `TeacherHome` gained a `TodayPanel`.
+- All four role homes now use consistent skeleton loading states instead of "…" placeholders.
+- Kept the existing pine/saffron/paper + Fraunces/Inter/JetBrains-Mono design identity intact —
+  this was a polish pass, not a rebrand.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in any file touched this session
+- `npm run build` → webpack compile ✅; type-check step hit pre-existing errors in unrelated API
+  routes caused by this sandbox failing to fetch the Prisma engine binary (network-restricted).
+  Not caused by this session's changes — recommend confirming with a local `npm run build`.
+
+### Key decisions
+- Extracted `DashboardHeader`/`TodayPanel` as shared components rather than duplicating markup
+  a fifth time.
+- `TodayPanel` consumes the real nested `bst.subject`/`bst.batch` timetable shape.
+
+### What's pending
+- Sidebar/TopBar polish (explicitly out of scope this session, per plan).
+- Attendance grid-card redesign (was in progress before this session — still pending).
+
+## Session 18 — 2026-08-05
+
+**Focus:** Dashboard UI enhancement, Pass 2 (richer visuals + more useful content)
+
+### What was done
+- Added `relative-time.ts` helper and shared `ActivityFeed` component.
+- `AdminHome`: "Recent activity" feed (homework + materials + attendance, merged/sorted from
+  existing endpoints), checklist progress bar, real hint text on the "Today's Sessions" card.
+- `TeacherHome`: own "Recent activity" feed beside `TodayPanel`.
+- `StudentHome`: "Upcoming homework" list (nearest 4 by due date, overdue highlighted in red).
+- `TodayPanel` empty state improved with an icon.
+- No new API routes/schema changes — everything composed from endpoints already in use.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in any file touched this session; full error set unchanged
+  from Session 17's sandbox-only Prisma-engine baseline (11 unrelated pre-existing files)
+- `npm run build` → webpack compile step passed; recommend confirming full build locally
+
+### Key decisions
+- Kept this pass entirely backend-free (composed from existing endpoints) by design.
+- No fabricated metrics — every stat/hint/activity item is real computed data.
+
+### What's pending
+- Sidebar/TopBar polish (still out of scope).
+- Attendance grid-card redesign (still pending from before Session 17).
+
+## Session 19 — 2026-08-05
+
+**Focus:** Fix wasted horizontal space on wide screens (reported via screenshot)
+
+### What was done
+- Replaced fixed `max-w-[720px]`/`max-w-[820px]` single-column layouts with a responsive
+  two-column grid (`xl:grid-cols-[1fr_320px]`) across `AdminHome`, `TeacherHome`, and
+  `StudentHome`, capped at `max-w-[1400px]` overall so the page uses available width on
+  large monitors instead of leaving a large empty right-hand gap.
+- Added a `QuickLinks` component (shared, defined once in `page.tsx`) — role-appropriate
+  shortcut links filling the right rail alongside `TodayPanel`.
+- `ParentHome`'s child cards now lay out in a 2-column grid on wide screens (`xl:grid-cols-2`)
+  instead of a single narrow stacked column.
+- Stat card grids now flex from 2 columns (mobile) up to 4 (Admin) / 3 (Teacher/Student) on
+  larger screens instead of a fixed narrow 2-column block.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in touched files (fixed one incidental type error: the new
+  `QuickLinks` icon prop needed the proper `LucideIcon` type instead of a hand-rolled one)
+- Full error set otherwise unchanged from the Session 17/18 sandbox Prisma-engine baseline
+
+### Key decisions
+- Capped total width at 1400px rather than going fully fluid — keeps line lengths/card sizes
+  readable on ultra-wide monitors instead of stretching content edge-to-edge.
+- Right rail is `xl:` breakpoint only — stacks back to a single column on narrower screens
+  rather than squeezing a 320px column onto a laptop-width viewport.
+
+## Session 20 — 2026-08-05
+
+**Focus:** Sidebar / TopBar polish
+
+### What was done
+- `Sidebar`: nested-route-aware active state, left accent bar on active item, nav grouped
+  into Overview/People/Academics/Admin sections (role-filtered), pinned footer brand line.
+- `TopBar`: user block + sign-out button merged into a single dropdown menu (click to open,
+  closes on outside-click/Escape), showing name/email/sign-out.
+- No new routes or fabricated links added.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ 0 errors in touched files; full error set unchanged from the
+  established sandbox Prisma-engine baseline (Sessions 17–19)
+
+### What's pending
+- Extending the dashboard's visual language to Attendance/Timetable/Materials/Homework/Marks
+  pages (still not started).
+- Attendance/parent-access functional work (still deferred from before Session 17).
+
+## Session 21 — 2026-08-05
+
+**Focus:** Begin extending dashboard design language to other pages — Attendance first
+
+### What was done
+- Swapped both attendance views' manual headers for the shared `DashboardHeader`.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ no new errors in `attendance/page.tsx`
+
+### Flagged, not fixed
+- `AttendancePage` sends parents into the teacher marking view (role switch only checks for
+  `'student'`) — functional gap tied to the deferred `ParentStudentLink` work, intentionally
+  left alone in this UI-only pass.
+
+### What's pending
+- Timetable, Materials, Homework, Marks pages — same header treatment still to do.
+- Attendance/parent-access functional work (still deferred).
+
+## Session 22 — 2026-08-05
+
+**Focus:** Fix parent attendance access bug (deferred from before Session 17)
+
+### What was done
+- `attendance/route.ts`: parents can now GET attendance, scoped via `ParentStudentLink` to
+  their linked children's batches, with `records` filtered to only their own children and
+  `student.name` attached for multi-child disambiguation.
+- `attendance/page.tsx`: fixed `AttendancePage`'s role switch — parents no longer fall through
+  to the teacher marking grid. New `ParentAttendanceView` (same tabs as student view, plus a
+  child selector for multi-child parents).
+- `Sidebar.tsx`: added `'parent'` to Attendance's nav roles.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → new parent-scoping code triggers the same pre-existing sandbox Prisma-
+  fallback error class already present in `homework/route.ts`'s identical pattern — confirmed
+  not a real bug, traced line-by-line.
+
+### What's pending
+- `marks/page.tsx` still has no parent role support (separate, still open).
+- Materials/Homework pages haven't had the `DashboardHeader` consistency pass yet.
+- Timetable page hasn't had the design-language pass.
+
+## Session 23 — 2026-08-05
+
+**Focus:** Parent Marks access (closes out the last of the four flagged parent-access gaps)
+
+### What was done
+- `exams/route.ts`: parents can now GET exams, scoped via `ParentStudentLink` to their linked
+  children's batches, with `marks` filtered to only their own children.
+- `marks/page.tsx`: split into role-dispatching `MarksPage` → new `ParentMarksView` (read-only,
+  child selector for multi-child parents) or existing `ManagedMarksView` (unchanged behavior).
+  Both now use the shared `DashboardHeader`.
+- `Sidebar.tsx`: added `'parent'` to Marks nav roles.
+
+### Verification
+- `npm run lint` → ✅ 0 errors
+- `npx tsc --noEmit` → ✅ file-level error set unchanged from established sandbox baseline
+
+### Milestone
+- All four pages originally flagged as missing parent access — Attendance, Materials,
+  Homework, Marks — now support the parent role via the same `ParentStudentLink` pattern.
+
+### What's pending
+- Timetable page hasn't had the `DashboardHeader` consistency pass yet.
+- Materials/Homework pages haven't had the `DashboardHeader` consistency pass yet (their
+  parent-access logic was already done in earlier work, just not the header visual pass).

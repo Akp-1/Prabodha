@@ -213,6 +213,7 @@ export default function TimetablePage() {
                   </div>
                 </form>
               </div>
+
             </div>
         )}
       </div>
