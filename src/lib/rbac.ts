@@ -54,9 +54,10 @@ export function requireRole(user: TokenPayload, ...allowedRoles: Role[]): void {
 export function apiHandler(
   handler: (request: NextRequest, context: { params: Record<string, string> }) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, context: { params: Record<string, string> }) => {
+  return async (request: NextRequest, context?: { params: Record<string, string> }) => {
     try {
-      return await handler(request, context);
+      const safeContext = context && context.params ? context : { params: {} };
+      return await handler(request, safeContext);
     } catch (err) {
       if (err instanceof ApiError) {
         return NextResponse.json({ error: err.message }, { status: err.status });

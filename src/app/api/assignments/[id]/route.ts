@@ -18,9 +18,9 @@ async function findAssignment(id: string, instituteId: string) {
     });
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const assignment = await findAssignment(id, user.instituteId);
     if (!assignment) throw new ApiError(404, 'Assignment not found');
@@ -41,10 +41,10 @@ const patchSchema = z.object({
     teacherId: z.string().min(1),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -69,10 +69,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 // Hard delete: this is a structural link (like batches/subjects), not a
 // person, so it's removed outright rather than soft-deleted. Deleting it
 // also cascades to any dependent TimetableSlot rows (see schema).
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findAssignment(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Assignment not found');

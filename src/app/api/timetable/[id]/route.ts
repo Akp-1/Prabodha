@@ -42,10 +42,10 @@ async function findSlot(id: string, instituteId: string) {
     });
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const slot = await prisma.timetableSlot.findFirst({
         where: { id, instituteId: user.instituteId },
@@ -70,10 +70,10 @@ const patchSchema = z.object({
     classroom: z.string().nullable().optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -115,10 +115,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 });
 
 // Hard delete — structural, like Assignments, not a person.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findSlot(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Timetable slot not found');

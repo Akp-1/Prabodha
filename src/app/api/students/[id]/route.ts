@@ -37,9 +37,9 @@ async function teacherCanAccessBatch(teacherId: string, instituteId: string, bat
     return !!assignment;
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const student = await findStudent(id, user.instituteId);
     if (!student) throw new ApiError(404, 'Student not found');
@@ -64,10 +64,10 @@ const patchSchema = z.object({
     isActive: z.boolean().optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -89,10 +89,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 // Soft-delete: flips isActive to false instead of removing the row, so
 // historical references (attendance records, homework status, parent links)
 // stay intact.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findStudent(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Student not found');

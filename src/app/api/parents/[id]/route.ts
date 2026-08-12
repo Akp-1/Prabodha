@@ -31,10 +31,10 @@ async function findParent(id: string, instituteId: string) {
     });
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const parent = await findParent(id, user.instituteId);
     if (!parent) throw new ApiError(404, 'Parent not found');
@@ -48,10 +48,10 @@ const patchSchema = z.object({
     isActive: z.boolean().optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -69,10 +69,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 
 // Soft-delete: flips isActive to false. The parent's links remain intact
 // so historical data (homework status views etc.) stays consistent.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findParent(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Parent not found');

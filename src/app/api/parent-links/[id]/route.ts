@@ -20,9 +20,9 @@ function canAccess(user: { role: string; sub: string }, link: { parentId: string
     return false;
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const link = await findLink(id, user.instituteId);
     if (!link) throw new ApiError(404, 'Parent-student link not found');
@@ -36,10 +36,10 @@ export const GET = apiHandler(async (request: NextRequest, { params }) => {
 // a new link, same reasoning as Assignments' batch/subject fields.
 
 // Hard delete — a structural link, not a person, same as Assignments.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findLink(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Parent-student link not found');

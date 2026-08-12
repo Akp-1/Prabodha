@@ -9,10 +9,10 @@ const postSchema = z.object({
   studentIds: z.array(z.string()),
 });
 
-export const POST = apiHandler(async (request: NextRequest, { params }) => {
+export const POST = apiHandler(async (request: NextRequest, context) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
-  const batchId = params.id;
+  const batchId = context?.params?.id || '';
 
   const body = postSchema.parse(await request.json());
 

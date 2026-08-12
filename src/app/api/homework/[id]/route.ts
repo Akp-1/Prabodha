@@ -35,10 +35,10 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
     return !!assigned;
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const homework = await findHomework(id, user.instituteId);
     if (!homework) throw new ApiError(404, 'Homework not found');
@@ -65,10 +65,10 @@ const patchSchema = z.object({
         .optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -126,10 +126,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 });
 
 // Hard delete — cascades to HomeworkStatus rows.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findHomework(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Homework not found');

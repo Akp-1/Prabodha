@@ -5,9 +5,9 @@ import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
   const user = requireAuth(request);
-  const id = params.id;
+  const id = context?.params?.id || '';
 
   const batch = await prisma.batch.findUnique({
     where: { id, instituteId: user.instituteId },
@@ -34,10 +34,10 @@ const patchSchema = z.object({
   name: z.string().min(1, 'Batch name cannot be empty').optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
-  const id = params.id;
+  const id = context?.params?.id || '';
 
   const body = patchSchema.parse(await request.json());
 
@@ -52,10 +52,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
   return NextResponse.json(batch);
 });
 
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
   const user = requireAuth(request);
   requireRole(user, 'admin');
-  const id = params.id;
+  const id = context?.params?.id || '';
 
   const existing = await prisma.batch.findUnique({ where: { id, instituteId: user.instituteId } });
   if (!existing) throw new ApiError(404, 'Batch not found');

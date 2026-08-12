@@ -38,10 +38,10 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
     return !!assigned;
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const material = await findMaterial(id, user.instituteId);
     if (!material) throw new ApiError(404, 'Study material not found');
@@ -59,10 +59,10 @@ const patchSchema = z.object({
     externalLink: z.string().url().nullable().optional(),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -80,10 +80,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 });
 
 // Hard delete — no isActive concept for material, same as Timetable/Assignments.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const existing = await findMaterial(id, user.instituteId);
     if (!existing) throw new ApiError(404, 'Study material not found');

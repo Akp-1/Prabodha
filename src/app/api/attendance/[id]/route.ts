@@ -34,10 +34,10 @@ function canAccess(user: { role: string; sub: string }, session: { bst: { teache
     return user.role === 'admin' || session.bst?.teacherId === user.sub;
 }
 
-export const GET = apiHandler(async (request: NextRequest, { params }) => {
+export const GET = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const session = await findSessionWithBst(id, user.instituteId);
     if (!session) throw new ApiError(404, 'Attendance session not found');
@@ -62,10 +62,10 @@ const patchSchema = z.object({
         .min(1),
 });
 
-export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
+export const PATCH = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const body = patchSchema.parse(await request.json());
 
@@ -96,10 +96,10 @@ export const PATCH = apiHandler(async (request: NextRequest, { params }) => {
 // Hard delete — an attendance session is an event record, not a person, and
 // there's no isActive concept on it in the schema. Cascades to its
 // AttendanceRecord rows.
-export const DELETE = apiHandler(async (request: NextRequest, { params }) => {
+export const DELETE = apiHandler(async (request: NextRequest, context) => {
     const user = requireAuth(request);
     requireRole(user, 'admin', 'teacher');
-    const id = params.id;
+    const id = context?.params?.id || '';
 
     const session = await findSessionWithBst(id, user.instituteId);
     if (!session) throw new ApiError(404, 'Attendance session not found');
