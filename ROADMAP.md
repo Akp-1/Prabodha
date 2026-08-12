@@ -80,12 +80,12 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Database Migration:** Switch Prisma `provider` from SQLite to PostgreSQL with native PostgreSQL enums (`Role`, `MaterialType`, `AttendanceStatus`, `HomeworkCompletionStatus`) and `@db` attributes.
 - [x] **Seed Script:** Rich demo dataset (30 students, 3 batches, attendance/homework/marks, 2 parent accounts with links). Ready for both dev testing and production bootstrapping.
 
-### Phase 7: Deployment (🔴 TODO)
-- [ ] **VPS Provisioning:** Setup Ubuntu server, Node.js, PM2, and Nginx.
-- [ ] **Database Hosting:** Install and configure PostgreSQL on the VPS (or use a managed DB).
-- [ ] **Environment Variables:** Securely configure production secrets and database URLs.
-- [ ] **Domain & SSL:** Point domain to the VPS and configure Let's Encrypt SSL.
-- [ ] **CI/CD:** (Optional) Setup GitHub Actions to automatically deploy on merge to `main`.
+### Phase 7: Free Cloud Deployment & Vercel Hosting (✅ COMPLETED)
+- [x] **Database Hosting:** Provisioned Supabase Cloud PostgreSQL database with full SSL connection pooling (Port 5432).
+- [x] **Database Migration & Seeding:** Applied all Prisma PostgreSQL migrations (`npx prisma migrate deploy`) and seeded the cloud database (`npm run db:seed`).
+- [x] **Environment Variables:** Securely configured production `DATABASE_URL` and `JWT_SECRET` in Vercel settings.
+- [x] **Production Web Hosting:** Deployed Next.js 14 application to Vercel at `https://prabodha-erp.vercel.app`.
+- [x] **Vercel Build Scripting:** Added `"postinstall": "prisma generate"` and `"build": "prisma generate && next build"` to `package.json` for zero-downtime automated builds.
 
 ---
 
