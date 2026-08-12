@@ -963,14 +963,30 @@ UI, and a documentation-debt correction pass
 
 #### 3. Production Deployment & Custom Domain
 - Deployed production build to Vercel connected to Supabase Cloud PostgreSQL.
-- Primary production URL: `https://prabodha-erp.vercel.app`.
-
-### Verification
-- `npx prisma migrate deploy` → ✅ Applied baseline migrations to Supabase Cloud PostgreSQL.
-- `npm run db:seed` → ✅ 100% seeded on Supabase Cloud DB.
 - `npm run build` → ✅ 100% success (zero TypeScript errors, 17/17 routes compiled).
 - `git push origin main` → ✅ Pushed commit `3692cb9` to GitHub.
 - Live URL test (`https://prabodha-erp.vercel.app`) → ✅ 100% live and functional.
+
+---
+
+### Session 15 — 2026-08-12
+**Goal:** Standalone Website for Vector Classes Barhi featuring Prabodha ERP Integration
+
+#### 1. Website Development (`vector-classes-website/`)
+- Built a standalone, premium static HTML/CSS/JS website for **Vector Classes Barhi** inside `vector-classes-website/`.
+- Incorporated exact authentic poster details: Estd 2014, 13 Years of Excellence, Hindi slogan ("अब वक्त है नींव मजबूत करने का! Vector Classes Barhi के साथ – 6th से IIT/NEET का सफर प्रारंभ करें!"), IIT-JEE, NEET, Foundation (6th–10th), Arts, small batch sizes, and smart classrooms.
+- Campus contact details: H.bag Road Barhi, Hazaribagh | Phone: `7717777833` & `8789311025`.
+
+#### 2. Prabodha ERP Integration & 1-Click Launchers
+- Created an interactive "Powered by Prabodha ERP" feature showcase highlighting conflict-free timetables, 1-tap roster attendance, digital study drive, homework tracker, exams grading, and parent rings.
+- Integrated prominent 1-click CTA buttons linking directly to Prabodha ERP live login (`https://prabodha-erp.vercel.app/login`).
+- Embedded static assets inside `public/vector-classes/` for optional direct access on main site.
+
+### Verification
+- Tested local standalone files in browser (`vector-classes-website/index.html`).
+- Verified all CTA buttons redirect cleanly to `https://prabodha-erp.vercel.app/login`.
+- Pushed commit `10c9552` to GitHub `main`.
+
 
 
 
