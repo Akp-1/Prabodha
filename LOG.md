@@ -948,4 +948,23 @@ UI, and a documentation-debt correction pass
 
 ---
 
+### Session 14 — 2026-08-12
+**Goal:** Supabase Cloud Database Provisioning, Seeding, and Vercel Production Build Fixes
+
+#### 1. Supabase Cloud PostgreSQL Integration
+- Connected Prabodha Prisma ORM to Supabase Cloud PostgreSQL database via Connection Pooler (Port 5432).
+- Applied all PostgreSQL database migrations to cloud (`npx prisma migrate deploy`).
+- Seeded cloud database (`npm run db:seed`) with 30 students, 3 teachers, 3 batches, 5 subjects, 23 timetable slots, 110 attendance sessions (1,100 records), 18 homework assignments, 21 exams (210 marks), and 2 linked parent accounts.
+
+#### 2. Vercel Build Optimization & Dynamic Route Handler Fix
+- **Root Cause:** Next.js 14 static page data collection during Vercel build (`next build`) evaluates exported route handlers with an uninitialized context parameter. Direct destructuring `{ params }` threw a `TypeError` during static analysis (`Failed to collect page data for /api/assignments/[id]`).
+- **Fix Implemented:** Updated `src/lib/rbac.ts` (`apiHandler`) and all 14 dynamic `[id]` route handlers (`assignments/[id]`, `attendance/[id]`, `batches/[id]`, `exams/[id]`, `homework/[id]`, `materials/[id]`, `parents/[id]`, `students/[id]`, `subjects/[id]`, `teachers/[id]`, `timetable/[id]`, `parent-links/[id]`, `parent-student-links/[id]`) to accept optional context parameters and safely fall back to safe parameter defaults (`context?.params?.id || ''`).
+
+### Verification
+- `npx prisma migrate deploy` → ✅ Applied baseline migrations to Supabase Cloud PostgreSQL.
+- `npm run db:seed` → ✅ 100% seeded on Supabase Cloud DB.
+- `npm run build` → ✅ 100% success (zero TypeScript errors, 17/17 routes compiled).
+- `git push origin main` → ✅ Pushed commit `ecd86db` to GitHub.
+
+
 
