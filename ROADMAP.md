@@ -14,7 +14,7 @@ This document serves as the central command post for the Prabodha project. It co
 - **Framework:** Next.js 14 (App Router)
 - **Styling:** Tailwind CSS (Custom color palette: Pine, Saffron, Paper)
 - **Database ORM:** Prisma
-- **Database Engine:** SQLite (Local Development) → PostgreSQL (VPS Production)
+- **Database:** PostgreSQL (Docker for local dev, native install for production VPS)
 - **Authentication:** Custom JWT-based Auth (Bearer token, attached via `Authorization` header on each request; stored client-side in localStorage — not HTTP-only cookies, since `requireAuth` only reads the header)
 - **Role-Based Access Control (RBAC):** 4 roles (`admin`, `teacher`, `student`, `parent`)
 
@@ -74,10 +74,10 @@ For all developers and AI agents contributing to this project, you **MUST** foll
   - [x] Recent Marks Table (last 5 exams, color-coded percentages).
   - [x] Loading skeletons + "no children linked" empty state.
 
-### Phase 6: Polish & Production Readiness (🟡 IN PROGRESS)
-- [ ] **Error Handling:** Ensure API errors gracefully display as toast notifications in the UI.
-- [ ] **Loading States:** Add Skeleton loaders for all data-fetching components.
-- [ ] **Database Migration:** Switch Prisma `provider` from SQLite to PostgreSQL.
+### Phase 6: Polish & Production Readiness (✅ COMPLETED)
+- [x] **Error Handling:** Ensure API errors gracefully display as toast notifications in the UI (`ToastProvider` + `useToast()`).
+- [x] **Loading States:** Add Skeleton loaders (`SkeletonTable`, `SkeletonCard`, `SkeletonList`, `SkeletonDashboard`) for all data-fetching components.
+- [x] **Database Migration:** Switch Prisma `provider` from SQLite to PostgreSQL with native PostgreSQL enums (`Role`, `MaterialType`, `AttendanceStatus`, `HomeworkCompletionStatus`) and `@db` attributes.
 - [x] **Seed Script:** Rich demo dataset (30 students, 3 batches, attendance/homework/marks, 2 parent accounts with links). Ready for both dev testing and production bootstrapping.
 
 ### Phase 7: Deployment (🔴 TODO)

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { FileText, FileImage, Link2, StickyNote, Plus, Search, X, ExternalLink, Trash2 } from 'lucide-react';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -169,7 +170,7 @@ export default function MaterialsPage() {
         {loadError && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{loadError}</div>}
 
         {isLoading ? (
-            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading materials…</div>
+            <SkeletonList items={4} />
         ) : grouped.length ? (
             <div className="space-y-6">
               {grouped.map(([subjectName, items]) => (

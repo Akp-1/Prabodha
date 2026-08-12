@@ -15,10 +15,10 @@ const include = {
     },
 };
 
-// TimetableSlot.startTime/endTime are stored as DateTime (SQLite has no
-// time-only column type). We only ever care about the time-of-day, so every
-// slot is pinned to the same arbitrary reference date (1970-01-01) and
-// compared/sorted on that basis.
+// TimetableSlot.startTime/endTime are stored as TIME columns (@db.Time(0))
+// in PostgreSQL. Prisma still maps them to JavaScript Date objects, so we
+// pin every slot to the same arbitrary reference date (1970-01-01) and
+// compare/sort on that basis.
 const TIME_REF_DATE = '1970-01-01';
 
 function parseTime(hhmm: string): Date {
@@ -91,7 +91,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     // Conflict checks — a slot can't double-book the same teacher, the same
     // batch, or (if given) the same classroom, on the same day at an
     // overlapping time. We fetch same-day slots for the institute and check
-    // overlap in JS since SQLite has no native time-range overlap query.
+    // overlap in JS — this approach works with both SQLite and PostgreSQL.
     const sameDaySlots = await prisma.timetableSlot.findMany({
         where: { instituteId: user.instituteId, dayOfWeek: body.dayOfWeek },
         include: { bst: { select: { teacherId: true, batchId: true } } },

@@ -8,7 +8,7 @@ This document describes the technical architecture of the Prabodha platform for 
 |---|---|---|
 | Framework | Next.js 14 (App Router) | Pages in `src/app/`, API routes in `src/app/api/` |
 | Language | TypeScript | Strict mode |
-| Database | SQLite (dev) / PostgreSQL (prod) | Configured in `prisma/schema.prisma` |
+| Database | PostgreSQL | Docker for local dev, native install for production |
 | ORM | Prisma | Schema = single source of truth for all tables |
 | Auth | bcrypt + JWT (Bearer) | Token issued by `/api/auth/login`, verified in `src/lib/rbac.ts` |
 | Styling | Tailwind CSS | Custom palette: Pine (green), Saffron (gold), Paper (warm white) |

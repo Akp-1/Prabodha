@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CalendarPlus, Clock3, MapPin, X } from 'lucide-react';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -130,7 +131,7 @@ export default function TimetablePage() {
         {loadError && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{loadError}</div>}
 
         {isLoading ? (
-            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading timetable…</div>
+            <SkeletonTable rows={4} cols={3} />
         ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {DAYS.map((day) => {

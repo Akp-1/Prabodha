@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Award, Plus, Save, X } from 'lucide-react';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -178,7 +179,7 @@ export default function MarksPage() {
         {loadError && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">{loadError}</div>}
 
         {isLoading ? (
-            <div className="rounded-xl border border-line bg-white px-6 py-16 text-center text-sm text-ink-soft">Loading assessments…</div>
+            <SkeletonList items={4} />
         ) : exams.length ? (
             <div className="overflow-hidden rounded-xl border border-line bg-white">
               <div className="divide-y divide-line">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, X } from 'lucide-react';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 export type ResourceKind = 'batches' | 'subjects' | 'materials' | 'homework' | 'assessments';
 
@@ -205,7 +206,7 @@ export function AdminResourcePage({ resource }: { resource: ResourceKind }) {
             <span>{config.columns[0]}</span><span>{config.columns[1]}</span><span>{config.columns[2]}</span><span>State</span>
           </div>
           {isLoading ? (
-              <div className="px-6 py-12 text-center text-sm text-ink-soft">Loading…</div>
+              <SkeletonTable rows={5} cols={3} />
           ) : filtered.length ? filtered.map((row) => (
               <div key={row.id} className="grid grid-cols-[1.4fr_1fr_1fr_100px] gap-4 items-center border-b border-line px-6 py-4 last:border-b-0 text-sm">
                 <span className="truncate font-semibold text-ink">{row.values[0]}</span>

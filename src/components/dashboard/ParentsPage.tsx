@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, Link2, Plus, Search, Unlink, UserRound, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { useToast } from '@/components/ui/Toaster';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 /* ---------- Types ---------- */
 
@@ -24,6 +26,7 @@ type ApiStudent = { id: string; name: string; email: string; batchId?: string | 
 
 export function ParentsPage() {
   /* ---- State ---- */
+  const toast = useToast();
   const [parents, setParents] = useState<ApiParent[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -80,7 +83,7 @@ export function ParentsPage() {
     e.preventDefault();
     const trimmedPw = enrollPassword.trim();
     if (trimmedPw.length < 8) {
-      alert('Password must be at least 8 characters.');
+      toast.error('Password must be at least 8 characters.');
       return;
     }
     setEnrolling(true);
@@ -97,7 +100,7 @@ export function ParentsPage() {
       setParents((prev) => [created, ...prev]);
       resetEnroll();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to enroll parent');
+      toast.error(err instanceof Error ? err.message : 'Failed to enroll parent');
     } finally {
       setEnrolling(false);
     }
@@ -151,7 +154,7 @@ export function ParentsPage() {
         setParents((prev) => prev.map((p) => (p.id === linkParent.id ? updatedParent : p)));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to update link');
+      toast.error(err instanceof Error ? err.message : 'Failed to update link');
     } finally {
       setLinkBusy(null);
     }
@@ -163,7 +166,7 @@ export function ParentsPage() {
       <div className="max-w-[1040px]">
         <div className="font-mono text-[11.5px] tracking-[0.12em] text-saffron-deep uppercase mb-2">Institution directory</div>
         <h1 className="font-display font-semibold text-[32px] tracking-tight mb-6">Parents</h1>
-        <div className="text-sm text-ink-soft">Loading…</div>
+        <SkeletonTable rows={5} cols={4} />
       </div>
     );
   }

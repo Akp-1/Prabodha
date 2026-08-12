@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ClipboardCheck, UserRound } from 'lucide-react';
+import { SkeletonList } from '@/components/ui/Skeleton';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -190,7 +191,7 @@ export default function AttendancePage() {
 
             <div className="divide-y divide-line">
               {isLoadingRoster ? (
-                  <div className="px-5 py-12 text-center text-sm text-ink-soft">Loading roster…</div>
+                  <div className="p-4"><SkeletonList items={4} /></div>
               ) : students.length ? students.map((s) => {
                 const absent = absentIds.includes(s.id);
                 return (

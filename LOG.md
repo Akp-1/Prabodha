@@ -893,18 +893,59 @@ UI, and a documentation-debt correction pass
 
 ---
 
-<!-- Future sessions: copy the template below -->
-<!--
-## Session N — YYYY-MM-DD
+## Session 13 — 2026-08-12
 
-**Focus:** [One-line summary]
+**Focus:** Phase 6 — PostgreSQL Migration, Toast Error Handling, & Skeleton Loaders
 
 ### What was done
-- ...
+
+#### 1. PostgreSQL Schema & Configuration Migration
+- Updated `prisma/schema.prisma` datasource provider from `sqlite` to `postgresql`.
+- Introduced PostgreSQL native enums: `Role`, `MaterialType`, `AttendanceStatus`, `HomeworkCompletionStatus`.
+- Applied `@db.Date`, `@db.Time(0)`, and `@db.Text` type mapping attributes across model definitions.
+- Removed SQLite migrations folder (`prisma/migrations`) to prepare for fresh PostgreSQL baseline migration.
+- Updated `.env` and `.env.example` to point `DATABASE_URL` to PostgreSQL Docker instance (`postgresql://postgres:postgres@localhost:5432/prabodha?schema=public`).
+- Updated `prisma/seed.ts` comments and documentation (`docs/architecture.md`, `ROADMAP.md`).
+
+#### 2. Toast Notification Error Handling
+- Created `src/components/ui/Toaster.tsx` providing a global `ToastProvider` and `useToast()` hook.
+- Integrated `<ToastProvider />` into root layout (`src/app/layout.tsx`).
+- Refactored dashboard components (`ParentsPage.tsx`, etc.) to use `toast.error()` and `toast.success()` instead of raw browser `alert()`.
+
+#### 3. Shimmer Skeleton Loading States
+- Created `src/components/ui/Skeleton.tsx` containing reusable shimmer components: `Skeleton`, `SkeletonCard`, `SkeletonTable`, `SkeletonList`, and `SkeletonDashboard`.
+- Replaced plain text loading blocks with skeleton components across all data-fetching dashboard pages:
+  - `dashboard/page.tsx` (Dashboard Overview for Admin, Teacher, Student, and Parent roles)
+  - `timetable/page.tsx`
+  - `attendance/page.tsx`
+  - `materials/page.tsx`
+  - `homework/page.tsx`
+  - `marks/page.tsx`
+  - `ParentsPage.tsx`
+  - `DirectoryPage.tsx`
+  - `AdminResourcePage.tsx`
+
+#### 4. Feature Landing Page (`src/app/page.tsx`)
+- Transformed the basic root page into a modern marketing and capability showcase landing page:
+  - **Hero Section:** Value proposition tagline, call-to-action buttons ("Explore Live Institute", "Register Institute"), and live interactive institute dashboard preview widget.
+  - **Interactive Role Showcase:** Switchable tab cards highlighting capabilities for **Admins**, **Faculty/Teachers**, **Learners**, and **Parents**.
+  - **Core ERP Bento Grid:** 6 cards showcasing Timetables with collision detection, 1-tap Attendance, Study Drive, Homework tracking, Assessment Grading, and Multi-tenant PostgreSQL security.
+  - **Instant Demo Credentials:** Click-to-copy test emails for all 4 roles (`admin@prabodha.local`, `teacher@prabodha.local`, `rohan.mehta@prabodha.local`, `parent@prabodha.local`).
 
 ### Verification
-- ...
+- `npx prisma migrate dev --name init` → ✅ PostgreSQL baseline migration `20260812093030_init` applied cleanly.
+- `npm run db:seed` → ✅ 30 students, 3 teachers, 3 batches, 5 subjects, 20 slots, 110 sessions, 1100 records, 21 homework, 20 exams, 200 marks, and 2 parents seeded.
+- `npm run build` → ✅ 100% passed (zero TypeScript errors, 17/17 routes compiled).
 
 ### Key decisions
-- ...
--->
+- Retained strict multi-tenant `instituteId` database scoping across all endpoints and models.
+- Preserved `1970-01-01` date-pinning convention for time slots for full cross-database compatibility between Prisma JS Date mappings and PostgreSQL `@db.Time(0)` columns.
+- Docker Desktop is utilized for managing local PostgreSQL container without requiring native local Windows Postgres installation.
+- Root route `/` serves as an impressive public feature landing page while seamlessly routing logged-in users directly to `/dashboard`.
+
+### What's pending
+- Phase 7: Deployment (VPS provisioning, Nginx, PM2, domain/SSL).
+
+---
+
+

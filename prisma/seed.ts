@@ -31,7 +31,7 @@ function daysAgo(n: number): Date {
   return d;
 }
 
-/** Returns a 1970-01-01 DateTime for a given hour:minute (SQLite time storage). */
+/** Returns a 1970-01-01 DateTime for a given hour:minute (Prisma maps @db.Time to Date). */
 function timeSlot(hour: number, minute: number): Date {
   return new Date(`1970-01-01T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00Z`);
 }

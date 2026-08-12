@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Users, GraduationCap, Layers, Calendar, BookMarked, Award, ClipboardCheck, Check } from 'lucide-react';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { SkeletonDashboard, SkeletonList } from '@/components/ui/Skeleton';
 import { apiFetch, ApiClientError } from '@/lib/api-client';
 import { useAuth } from '@/components/auth/AuthProvider';
 
@@ -67,12 +68,18 @@ function AdminHome() {
 
             {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
 
-            <div className="grid grid-cols-2 gap-[18px] mb-[30px] max-w-[720px]">
-                <StatCard label="Total Learners" value={isLoading ? '…' : stats.students} icon={Users} />
-                <StatCard label="Faculty Members" value={isLoading ? '…' : stats.teachers} icon={GraduationCap} />
-                <StatCard label="Active Batches" value={isLoading ? '…' : stats.batches} icon={Layers} />
-                <StatCard label="Today's Sessions" value={isLoading ? '…' : stats.todaySessions} icon={Calendar} />
-            </div>
+            {isLoading ? (
+                <div className="max-w-[720px] mb-[30px]">
+                    <SkeletonDashboard cards={4} />
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 gap-[18px] mb-[30px] max-w-[720px]">
+                    <StatCard label="Total Learners" value={stats.students} icon={Users} />
+                    <StatCard label="Faculty Members" value={stats.teachers} icon={GraduationCap} />
+                    <StatCard label="Active Batches" value={stats.batches} icon={Layers} />
+                    <StatCard label="Today's Sessions" value={stats.todaySessions} icon={Calendar} />
+                </div>
+            )}
 
             {/* Getting Started checklist (from contributor) */}
             <div className="bg-white border border-line rounded-xl px-8 py-[30px] max-w-[720px]">
@@ -133,11 +140,17 @@ function TeacherHome() {
 
             {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
 
-            <div className="grid grid-cols-3 gap-[18px] max-w-[720px]">
-                <StatCard label="Assigned Classes" value={isLoading ? '…' : stats.assignments} icon={GraduationCap} />
-                <StatCard label="Sessions Today" value={isLoading ? '…' : stats.todaySessions} icon={Calendar} />
-                <StatCard label="Homework Pending" value={isLoading ? '…' : stats.pendingHomework} icon={BookMarked} />
-            </div>
+            {isLoading ? (
+                <div className="max-w-[720px]">
+                    <SkeletonDashboard cards={3} />
+                </div>
+            ) : (
+                <div className="grid grid-cols-3 gap-[18px] max-w-[720px]">
+                    <StatCard label="Assigned Classes" value={stats.assignments} icon={GraduationCap} />
+                    <StatCard label="Sessions Today" value={stats.todaySessions} icon={Calendar} />
+                    <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} />
+                </div>
+            )}
         </>
     );
 }
@@ -175,11 +188,17 @@ function StudentHome() {
 
             {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
 
-            <div className="grid grid-cols-3 gap-[18px] max-w-[720px]">
-                <StatCard label="Homework Pending" value={isLoading ? '…' : stats.pendingHomework} icon={BookMarked} />
-                <StatCard label="Study Materials" value={isLoading ? '…' : stats.materials} icon={ClipboardCheck} />
-                <StatCard label="Assessments Graded" value={isLoading ? '…' : stats.gradedExams} icon={Award} />
-            </div>
+            {isLoading ? (
+                <div className="max-w-[720px]">
+                    <SkeletonDashboard cards={3} />
+                </div>
+            ) : (
+                <div className="grid grid-cols-3 gap-[18px] max-w-[720px]">
+                    <StatCard label="Homework Pending" value={stats.pendingHomework} icon={BookMarked} />
+                    <StatCard label="Study Materials" value={stats.materials} icon={ClipboardCheck} />
+                    <StatCard label="Assessments Graded" value={stats.gradedExams} icon={Award} />
+                </div>
+            )}
         </>
     );
 }
@@ -254,10 +273,8 @@ function ParentHome() {
             {error && <div className="mb-5 rounded-md border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 max-w-[720px]">{error}</div>}
 
             {isLoading ? (
-                <div className="max-w-[720px] space-y-4">
-                    {[1, 2].map((i) => (
-                        <div key={i} className="bg-white border border-line rounded-xl h-[200px] animate-pulse" />
-                    ))}
+                <div className="max-w-[720px]">
+                    <SkeletonList items={2} />
                 </div>
             ) : children.length === 0 ? (
                 <div className="max-w-[560px] rounded-xl border border-line bg-white px-6 py-8 text-sm text-ink-soft">
