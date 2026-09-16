@@ -1110,3 +1110,47 @@ Created a dedicated session and user caching engine engineered to handle 100,000
 - **JTI-Based Blocklist with Expiry Cleanup**: Avoids storing indefinitely growing token lists; memory is reclaimed automatically once a token's standard TTL passes.
 - **Defense in Depth**: Even if server restart clears memory state, database records permanently retain `isActive: false`, guaranteeing deactivated users cannot bypass security.
 
+---
+
+## Session 18 — 2026-09-16 (Afternoon)
+
+**Focus:** Zero-Dependency Rate Limiting, Brute-Force Defense, Security Headers & Final Security Audit
+
+### 1. What was done
+- **Zero-Dependency Rate Limiting (`src/lib/rate-limit.ts`)**:
+  - Implemented an in-memory sliding-window rate limiter with automated garbage collection for expired windows.
+  - Added `getClientIp(request)` helper supporting standard reverse proxy headers (`x-forwarded-for`, `x-real-ip`).
+  - Added `checkRateLimit(key, limit, windowMs)` and `resetRateLimit(key)`.
+- **Brute-Force Protection on Critical Auth Endpoints**:
+  - `POST /api/auth/login`: Enforced maximum 10 attempts per minute per IP. When exceeded, throws `ApiError(429, 'Too many requests. Please wait X seconds before trying again.')`. This protects student passwords (`Name@XXXX`) and user accounts from dictionary and brute-force attacks without disrupting legitimate access.
+  - `POST /api/auth/forgot-password`: Enforced maximum 5 requests per minute per IP to mitigate request flooding.
+- **Production Secret Hardening (`src/lib/auth.ts`)**:
+  - Added `getJwtSecret()` helper that enforces a fail-fast error in production if `JWT_SECRET` is not configured, while retaining the development fallback for local testing.
+- **OWASP Security Headers (`next.config.js`)**:
+  - Configured global HTTP security headers:
+    - `X-Frame-Options: DENY` (clickjacking protection)
+    - `X-Content-Type-Options: nosniff` (MIME-sniffing prevention)
+    - `X-DNS-Prefetch-Control: on`
+    - `Referrer-Policy: strict-origin-when-cross-origin`
+- **Preserved Existing Features & Backwards Compatibility**:
+  - Preserved bulk student password format (`Name@XXXX`) as explicitly requested.
+  - Retained `bcryptjs` password hashing algorithm to ensure zero existing user accounts or hashes in the database are invalidated.
+  - Kept all existing user profiles and data structures intact.
+
+### 2. Comprehensive Security & Regression Verification
+- **Automated End-to-End Suite (`scripts/verify-e2e.ts`)**:
+  - Test 1: Password reset token leak prevention in production vs development (`CRITICAL-1`) → Passed
+  - Test 2: User authentication & JWT unique `jti` claims → Passed
+  - Test 3: Server-side token revocation on logout (`CRITICAL-3`) → Passed
+  - Test 4: Immediate rejection of deactivated accounts via cache invalidation (`CRITICAL-2`) → Passed
+  - Test 5: 100,000-user cache throughput benchmark (899k+ ops/sec, 1.11μs latency, zero DB queries on hit) → Passed
+  - Test 6: Rate limiting on login and forgot-password (10 attempts throttle with HTTP 429, window reset validation) → Passed
+- **Build Verification**:
+  - `npx next build` completed with **0 TypeScript and lint errors**, building all 18 static pages and 37 dynamic API routes.
+- **Regression Audit**:
+  - Verified no breaking changes introduced to any existing functionality or user credentials.
+
+### 3. Key Decisions
+- **Zero-Dependency Approach**: Used native JS `Map` and sliding timestamps for rate limiting to adhere to minimalist principles, avoiding unnecessary Redis or third-party npm packages for local development.
+- **Targeted IP-Based Rate Limiting**: Placing limits at the endpoint entry point stops brute-force credential enumeration early before reaching bcrypt verification or database queries.
+

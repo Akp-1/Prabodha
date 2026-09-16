@@ -3,6 +3,7 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import { prisma } from '@/lib/db';
 import { apiHandler, ApiError } from '@/lib/rbac';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,10 @@ const bodySchema = z.object({
  * email resetToken to the user instead and delete the devResetToken line.
  */
 export const POST = apiHandler(async (request: NextRequest) => {
+  const ip = getClientIp(request);
+  // Max 5 reset requests per minute per IP
+  checkRateLimit(`forgot-password:${ip}`, 5, 60 * 1000);
+
   const body = bodySchema.safeParse(await request.json());
   if (!body.success) throw new ApiError(400, 'instituteSlug and email are required');
   const { instituteSlug, email } = body.data;

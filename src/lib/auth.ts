@@ -22,17 +22,28 @@ export interface TokenPayload {
   exp?: number;
 }
 
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: JWT_SECRET environment variable is missing in production!');
+    }
+    return 'prabodha-dev-fallback-secret-minimum-32-chars-key';
+  }
+  return secret;
+}
+
 export function signToken(payload: Omit<TokenPayload, 'jti' | 'exp'> & { jti?: string }): string {
   const tokenPayload: TokenPayload = {
     ...payload,
     jti: payload.jti || crypto.randomUUID(),
   };
 
-  return jwt.sign(tokenPayload, process.env.JWT_SECRET as string, {
+  return jwt.sign(tokenPayload, getJwtSecret(), {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
 }
 
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, process.env.JWT_SECRET as string) as TokenPayload;
+  return jwt.verify(token, getJwtSecret()) as TokenPayload;
 }

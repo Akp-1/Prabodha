@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { verifyPassword, signToken, type Role } from '@/lib/auth';
 import { apiHandler, ApiError } from '@/lib/rbac';
+import { checkRateLimit, getClientIp, resetRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,10 @@ const bodySchema = z.object({
  * could exist at two different institutes — it tells us which one to check.
  */
 export const POST = apiHandler(async (request: NextRequest) => {
+  const ip = getClientIp(request);
+  // Max 10 login attempts per minute per IP
+  checkRateLimit(`login:${ip}`, 10, 60 * 1000);
+
   const body = bodySchema.safeParse(await request.json());
   if (!body.success) {
     throw new ApiError(400, 'instituteSlug, email and password are required');
