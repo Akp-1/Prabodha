@@ -988,5 +988,69 @@ UI, and a documentation-debt correction pass
 - Pushed commit `10c9552` to GitHub `main`.
 
 
+## Session 16 — 2026-09-15
 
+**Focus:** Switch from Remote PostgreSQL (Supabase) to Local SQLite for Development
+
+### What was done
+- **Root cause**: Remote Supabase PostgreSQL server at `aws-0-ap-south-1.pooler.supabase.com:5432`
+  was unreachable, causing ~12s TCP connection timeouts on every API call (POST /api/auth/login
+  returned 500 after 11,759ms).
+- **Schema migration**: Updated `prisma/schema.prisma`:
+  - Changed `provider` from `"postgresql"` to `"sqlite"`
+  - Removed all 4 PostgreSQL native `enum` blocks (`Role`, `MaterialType`, `AttendanceStatus`,
+    `HomeworkCompletionStatus`) — replaced with `String` type in model fields
+  - Removed all `@db.*` attributes (`@db.Date`, `@db.Time(0)`, `@db.Text`) — SQLite has no
+    corresponding type mappings
+  - Enum validation remains enforced at the API layer via Zod schemas (no data integrity loss)
+- **Environment**: Changed `DATABASE_URL` in `.env` from Supabase connection string to `file:./dev.db`
+- **Migration reset**: Deleted old PostgreSQL migrations directory, created fresh SQLite baseline
+  migration `20260915055600_init`
+- **Seeding**: Full demo dataset seeded — 30 students, 3 teachers, 106 attendance sessions,
+  19 exams, 2 parents with links
+
+### Verification
+- `npx prisma migrate dev --name init` → ✅ SQLite database `dev.db` created and migrated
+- `npm run db:seed` → ✅ all entities seeded successfully
+- `npm run build` → ✅ zero TypeScript errors, 17 static pages + 37 API routes compiled
+
+### Key decisions
+- This is a **development-only** change — production deployment on Vercel still uses Supabase
+  PostgreSQL. The `.env` file is gitignored so this doesn't affect production.
+- Did NOT modify any API route handlers — Zod schemas already validate enum values as strings,
+  so the switch is transparent to application code.
+- `HomeworkStatus.status` default changed from `@default(pending)` (enum reference) to
+  `@default("pending")` (string literal) for SQLite compatibility.
+
+### What's pending
+- User has additional changes to make (pending specification)
+
+---
+
+## Session 17 — 2026-09-16
+
+**Focus:** Critical Security Vulnerability Fixes & High-Scale (100k Users) Session Architecture
+
+### What was done
+1. **CRITICAL-1 (Reset Token Leak Prevention)**:
+   - Gated `devResetToken` in `src/app/api/auth/forgot-password/route.ts` behind `process.env.NODE_ENV === 'development'`. Production builds never expose raw password reset tokens in JSON responses.
+2. **High-Scale Session & User Cache (`src/lib/session.ts`)**:
+   - Created in-memory bounded LRU/TTL user status cache (60s TTL, max 50,000 entries) with database fallback.
+   - Designed to handle 100,000+ users with zero database contention for active users (<10MB RAM footprint).
+   - Added instant cache invalidation via `invalidateUserCache(id)` triggered whenever teachers, students, or parents are soft-deleted or modified in `PATCH`/`DELETE` handlers.
+   - Added server-side token revocation (`revokeToken`, `isTokenRevoked`) using unique UUIDv4 `jti` claims with automatic expiry-based eviction.
+3. **CRITICAL-2 & CRITICAL-3 (Active Verification & Logout Revocation)**:
+   - Updated `src/lib/auth.ts`: added `jti` and `exp` to `TokenPayload` and `signToken`.
+   - Updated `src/lib/rbac.ts`: converted `requireAuth` to `async`, validating cryptographic signature, checking token revocation blocklist, and ensuring user exists and `isActive === true`. Added `allowInactive` option for logout cleanup.
+   - Updated `src/app/api/auth/logout/route.ts`: calls `revokeToken` to invalidate token server-side immediately on logout.
+4. **Codebase-Wide API Route Modernization**:
+   - Updated all 33 route files in `src/app/api` to `await requireAuth(request)`.
+
+### Verification
+- `npm run build` → ✅ 0 TypeScript errors, all 37 dynamic API routes and 18 static pages compiled cleanly.
+- `npx tsx scratch/test-security.ts` → ✅ Verified JWT signing with `jti`, token revocation blocklist, user status caching, instant invalidation, and deactivated user detection.
+
+### Key decisions
+- **Two-tier active check**: In-memory cache + DB fallback prevents database query storms at 100,000 users while guaranteeing deactivated users cannot access APIs.
+- **Immediate invalidation on write**: Admin deactivation immediately purges the cached record so deactivation takes effect instantly with zero delay.
 

@@ -12,7 +12,7 @@ const include = {
 };
 
 export const GET = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
     const subjectId = request.nextUrl.searchParams.get('subjectId') || undefined;
@@ -47,7 +47,7 @@ const postSchema = z.object({
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
 
     const body = postSchema.parse(await request.json());

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 /** Used by the frontend on page load to check "is anyone logged in." */
 export const GET = apiHandler(async (request: NextRequest) => {
-  const authUser = requireAuth(request);
+  const authUser = await requireAuth(request);
 
   const user = await prisma.user.findUnique({
     where: { id: authUser.sub },

@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * Only accessible by users with the `parent` role.
  */
 export const GET = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'parent');
 
     // 1. Find all children linked to this parent

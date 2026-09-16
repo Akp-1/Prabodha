@@ -19,7 +19,7 @@ const bodySchema = z.object({
  * never self-register.
  */
 export const POST = apiHandler(async (request: NextRequest) => {
-  const authUser = requireAuth(request);
+  const authUser = await requireAuth(request);
   requireRole(authUser, 'admin');
 
   const body = bodySchema.safeParse(await request.json());

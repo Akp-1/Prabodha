@@ -35,7 +35,7 @@ function canAccess(user: { role: string; sub: string }, session: { bst: { teache
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 
@@ -63,7 +63,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 
@@ -97,7 +97,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 // there's no isActive concept on it in the schema. Cascades to its
 // AttendanceRecord rows.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 

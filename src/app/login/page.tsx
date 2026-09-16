@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Building2, Mail, Lock, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+import { Building2, Mail, Lock, Loader2, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import Link from 'next/link';
 
 const LAST_SLUG_KEY = 'prabodha-last-institute-slug';
 
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [rememberSlug, setRememberSlug] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -156,13 +158,21 @@ export default function LoginPage() {
                 </div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="block w-full pl-10 pr-3.5 py-2.5 text-sm bg-paper border border-line rounded-xl text-ink placeholder-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine/30 focus:border-pine transition-all"
+                  className="block w-full pl-10 pr-11 py-2.5 text-sm bg-paper border border-line rounded-xl text-ink placeholder-ink-soft/60 focus:outline-none focus:ring-2 focus:ring-pine/30 focus:border-pine transition-all"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-ink-soft hover:text-ink transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={18} strokeWidth={1.8} /> : <Eye size={18} strokeWidth={1.8} />}
+                </button>
               </div>
             </div>
 
@@ -202,6 +212,18 @@ export default function LoginPage() {
           {/* Quick Info Box */}
           <div className="mt-6 pt-5 border-t border-line text-center text-xs text-ink-soft">
             Default demo login: <code className="bg-paper px-1.5 py-0.5 rounded border border-line font-mono text-ink">demo</code> / <code className="bg-paper px-1.5 py-0.5 rounded border border-line font-mono text-ink">admin@demo.com</code>
+          </div>
+
+          {/* Register Link */}
+          <div className="mt-4">
+            <Link
+              href="/register"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-semibold text-sm bg-pine text-white hover:bg-pine-deep focus:outline-none focus:ring-2 focus:ring-pine/50 transition-all shadow-xs"
+            >
+              <Building2 size={18} strokeWidth={2} />
+              <span>Register your Institute</span>
+              <ArrowRight size={16} strokeWidth={2} />
+            </Link>
           </div>
         </div>
       </div>

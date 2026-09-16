@@ -19,7 +19,7 @@ async function findAssignment(id: string, instituteId: string) {
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     const id = context?.params?.id || '';
 
     const assignment = await findAssignment(id, user.instituteId);
@@ -42,7 +42,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 
@@ -70,7 +70,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 // person, so it's removed outright rather than soft-deleted. Deleting it
 // also cascades to any dependent TimetableSlot rows (see schema).
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 

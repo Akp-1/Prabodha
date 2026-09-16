@@ -21,7 +21,7 @@ function canAccess(user: { role: string; sub: string }, link: { parentId: string
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     const id = context?.params?.id || '';
 
     const link = await findLink(id, user.instituteId);
@@ -37,7 +37,7 @@ export const GET = apiHandler(async (request: NextRequest, context) => {
 
 // Hard delete — a structural link, not a person, same as Assignments.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 

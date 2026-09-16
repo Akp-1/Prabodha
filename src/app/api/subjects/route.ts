@@ -6,7 +6,7 @@ import { apiHandler, requireAuth, requireRole } from '@/lib/rbac';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request: NextRequest) => {
-  const user = requireAuth(request);
+  const user = await requireAuth(request);
 
   const subjects = await prisma.subject.findMany({
     where: { instituteId: user.instituteId },
@@ -21,7 +21,7 @@ const postSchema = z.object({
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const user = requireAuth(request);
+  const user = await requireAuth(request);
   requireRole(user, 'admin');
 
   const body = postSchema.parse(await request.json());

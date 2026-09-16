@@ -10,7 +10,7 @@ const postSchema = z.object({
 });
 
 export const POST = apiHandler(async (request: NextRequest, context) => {
-  const user = requireAuth(request);
+  const user = await requireAuth(request);
   requireRole(user, 'admin');
   const batchId = context?.params?.id || '';
 

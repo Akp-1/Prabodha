@@ -43,7 +43,7 @@ async function findSlot(id: string, instituteId: string) {
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 
@@ -71,7 +71,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 
@@ -116,7 +116,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 
 // Hard delete — structural, like Assignments, not a person.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 

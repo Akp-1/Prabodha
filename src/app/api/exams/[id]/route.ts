@@ -18,7 +18,7 @@ async function findExam(id: string, instituteId: string) {
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
     const id = context?.params?.id || '';
 
@@ -62,7 +62,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 
@@ -74,24 +74,30 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
         throw new ApiError(403, 'You do not have permission to do this');
     }
 
-    const maxMarks = body.maxMarks ?? existing.maxMarks;
-
     if (body.marks?.length) {
-        const studentIds = body.marks.map((m) => m.studentId);
-        if (new Set(studentIds).size !== studentIds.length) {
-            throw new ApiError(400, 'Duplicate studentId in marks');
-        }
-
-        const students = await prisma.user.findMany({
-            where: { id: { in: studentIds }, instituteId: user.instituteId, role: 'student', batchId: existing.batchId },
-        });
-        if (students.length !== studentIds.length) {
-            throw new ApiError(400, "One or more students do not belong to this exam's batch");
-        }
-
+        // Validate marksObtained <= maxMarks
+        const effectiveMaxMarks = body.maxMarks ?? existing.maxMarks;
         for (const m of body.marks) {
-            if (m.marksObtained > maxMarks) {
-                throw new ApiError(400, `marksObtained (${m.marksObtained}) cannot exceed maxMarks (${maxMarks})`);
+            if (m.marksObtained > effectiveMaxMarks) {
+                throw new ApiError(400, `Marks obtained (${m.marksObtained}) cannot exceed max marks (${effectiveMaxMarks})`);
+            }
+        }
+
+        // Verify students belong to the exam's batch and are active
+        const students = await prisma.user.findMany({
+            where: {
+                id: { in: body.marks.map((m) => m.studentId) },
+                instituteId: user.instituteId,
+                role: 'student',
+                batchId: existing.batchId,
+                isActive: true,
+            },
+            select: { id: true },
+        });
+        const validStudentIds = new Set(students.map((s) => s.id));
+        for (const m of body.marks) {
+            if (!validStudentIds.has(m.studentId)) {
+                throw new ApiError(400, `Student ${m.studentId} does not belong to this exam's batch or is inactive`);
             }
         }
 
@@ -99,14 +105,23 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
             body.marks.map((m) =>
                 prisma.mark.upsert({
                     where: { examId_studentId: { examId: id, studentId: m.studentId } },
-                    create: { examId: id, studentId: m.studentId, marksObtained: m.marksObtained, remarks: m.remarks },
-                    update: { marksObtained: m.marksObtained, remarks: m.remarks },
+                    create: {
+                        examId: id,
+                        studentId: m.studentId,
+                        marksObtained: m.marksObtained,
+                        remarks: m.remarks,
+                    },
+                    update: {
+                        marksObtained: m.marksObtained,
+                        remarks: m.remarks,
+                    },
                 })
             )
         );
     } else if (body.maxMarks !== undefined) {
         // Lowering maxMarks below an already-recorded score would silently
         // invalidate that score, so it's rejected rather than truncated.
+        const maxMarks = body.maxMarks;
         const tooHigh = existing.marks.find((m) => m.marksObtained > maxMarks);
         if (tooHigh) {
             throw new ApiError(
@@ -131,7 +146,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 
 // Hard delete — cascades to Mark rows.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 

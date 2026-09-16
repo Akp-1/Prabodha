@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 // Hard delete — a parent-student link is structural, not a person.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 

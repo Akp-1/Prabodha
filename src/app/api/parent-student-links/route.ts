@@ -6,7 +6,7 @@ import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
 
     const parentId = request.nextUrl.searchParams.get('parentId') || undefined;
@@ -34,7 +34,7 @@ const postSchema = z.object({
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
 
     const body = postSchema.parse(await request.json());

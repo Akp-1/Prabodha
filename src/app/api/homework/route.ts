@@ -19,7 +19,7 @@ function summarize(hw: { statuses: { status: string }[] } & Record<string, unkno
 }
 
 export const GET = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
 
     const batchId = request.nextUrl.searchParams.get('batchId') || undefined;
@@ -71,7 +71,7 @@ const postSchema = z.object({
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
 
     const body = postSchema.parse(await request.json());

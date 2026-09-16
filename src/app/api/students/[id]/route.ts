@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
+import { invalidateUserCache } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ async function teacherCanAccessBatch(teacherId: string, instituteId: string, bat
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     const id = context?.params?.id || '';
 
     const student = await findStudent(id, user.instituteId);
@@ -65,7 +66,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 
@@ -83,6 +84,8 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
         select: safeSelect,
     });
 
+    invalidateUserCache(id);
+
     return NextResponse.json(student);
 });
 
@@ -90,7 +93,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 // historical references (attendance records, homework status, parent links)
 // stay intact.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
     const id = context?.params?.id || '';
 
@@ -102,6 +105,8 @@ export const DELETE = apiHandler(async (request: NextRequest, context) => {
         data: { isActive: false },
         select: safeSelect,
     });
+
+    invalidateUserCache(id);
 
     return NextResponse.json(student);
 });

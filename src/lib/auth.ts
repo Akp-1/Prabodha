@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -17,10 +18,17 @@ export interface TokenPayload {
   sub: string; // user id
   instituteId: string;
   role: Role;
+  jti?: string;
+  exp?: number;
 }
 
-export function signToken(payload: TokenPayload): string {
-  return jwt.sign(payload, process.env.JWT_SECRET as string, {
+export function signToken(payload: Omit<TokenPayload, 'jti' | 'exp'> & { jti?: string }): string {
+  const tokenPayload: TokenPayload = {
+    ...payload,
+    jti: payload.jti || crypto.randomUUID(),
+  };
+
+  return jwt.sign(tokenPayload, process.env.JWT_SECRET as string, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   } as jwt.SignOptions);
 }

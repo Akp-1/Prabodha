@@ -36,7 +36,7 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
     const id = context?.params?.id || '';
 
@@ -66,7 +66,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
     const id = context?.params?.id || '';
 
@@ -99,9 +99,10 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
         const existingStudentIds = new Set(existing.statuses.map((s) => s.studentId));
         for (const s of body.statuses) {
             if (!existingStudentIds.has(s.studentId)) {
-                throw new ApiError(400, `Student ${s.studentId} is not part of this homework's roster`);
+                throw new ApiError(400, `Student ${s.studentId} is not part of this homework assignment`);
             }
         }
+
         await prisma.$transaction(
             body.statuses.map((s) =>
                 prisma.homeworkStatus.update({
@@ -112,7 +113,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
         );
     }
 
-    const { statuses, ...fields } = body;
+    const { statuses: _ignored, ...fields } = body;
     const homework = await prisma.homework.update({
         where: { id },
         data: {
@@ -127,7 +128,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 
 // Hard delete — cascades to HomeworkStatus rows.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 

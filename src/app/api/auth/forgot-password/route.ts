@@ -43,8 +43,15 @@ export const POST = apiHandler(async (request: NextRequest) => {
     data: { userId: user.id, tokenHash, expiresAt },
   });
 
-  return NextResponse.json({
+  const response: Record<string, string> = {
     message: 'If that account exists, a reset link has been sent.',
-    devResetToken: resetToken, // TODO: remove once email sending is wired up
-  });
+  };
+
+  // Only expose the raw token in local development — never in production.
+  // TODO: remove this entirely once email sending is wired up.
+  if (process.env.NODE_ENV === 'development') {
+    response.devResetToken = resetToken;
+  }
+
+  return NextResponse.json(response);
 });

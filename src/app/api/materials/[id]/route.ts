@@ -39,7 +39,7 @@ async function canRead(user: { role: string; sub: string; instituteId: string },
 }
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher', 'student');
     const id = context?.params?.id || '';
 
@@ -60,7 +60,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 
@@ -81,7 +81,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 
 // Hard delete — no isActive concept for material, same as Timetable/Assignments.
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin', 'teacher');
     const id = context?.params?.id || '';
 

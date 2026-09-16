@@ -79,6 +79,12 @@ For all developers and AI agents contributing to this project, you **MUST** foll
 - [x] **Loading States:** Add Skeleton loaders (`SkeletonTable`, `SkeletonCard`, `SkeletonList`, `SkeletonDashboard`) for all data-fetching components.
 - [x] **Database Migration:** Switch Prisma `provider` from SQLite to PostgreSQL with native PostgreSQL enums (`Role`, `MaterialType`, `AttendanceStatus`, `HomeworkCompletionStatus`) and `@db` attributes.
 - [x] **Seed Script:** Rich demo dataset (30 students, 3 batches, attendance/homework/marks, 2 parent accounts with links). Ready for both dev testing and production bootstrapping.
+- [x] **Security Hardening (100k Users Ready):**
+  - [x] Gated `devResetToken` behind `NODE_ENV === 'development'`.
+  - [x] Two-tier user active verification with bounded in-memory LRU/TTL cache + DB fallback.
+  - [x] Instant cache invalidation on admin soft-delete/deactivation.
+  - [x] JWT `jti` tracking with server-side token revocation on logout.
+  - [x] Converted `requireAuth` to async and migrated all 33 API routes to `await requireAuth(request)`.
 
 ### Phase 7: Free Cloud Deployment & Vercel Hosting (✅ COMPLETED)
 - [x] **Database Hosting:** Provisioned Supabase Cloud PostgreSQL database with full SSL connection pooling (Port 5432).

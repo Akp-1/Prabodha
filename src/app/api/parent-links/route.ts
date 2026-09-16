@@ -11,7 +11,7 @@ const include = {
 };
 
 export const GET = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
 
     const studentId = request.nextUrl.searchParams.get('studentId') || undefined;
     const parentId = request.nextUrl.searchParams.get('parentId') || undefined;
@@ -43,7 +43,7 @@ const postSchema = z.object({
 });
 
 export const POST = apiHandler(async (request: NextRequest) => {
-    const user = requireAuth(request);
+    const user = await requireAuth(request);
     requireRole(user, 'admin');
 
     const body = postSchema.parse(await request.json());

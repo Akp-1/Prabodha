@@ -8,37 +8,15 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
-// Enums — PostgreSQL native enums for type safety at the DB level
+// Note: SQLite does not support native enums. Role, MaterialType,
+// AttendanceStatus, and HomeworkCompletionStatus are stored as String
+// and validated via Zod schemas in the API layer.
 // ---------------------------------------------------------------------------
-
-enum Role {
-  admin
-  teacher
-  student
-  parent
-}
-
-enum MaterialType {
-  pdf
-  image
-  note
-  link
-}
-
-enum AttendanceStatus {
-  present
-  absent
-}
-
-enum HomeworkCompletionStatus {
-  pending
-  completed
-}
 
 // ---------------------------------------------------------------------------
 // Module 1 — Authentication & Institutes
@@ -70,7 +48,7 @@ model Institute {
 model User {
   id               String    @id @default(cuid())
   instituteId      String    @map("institute_id")
-  role             Role
+  role             String
   name             String
   email            String
   phone            String?
@@ -83,10 +61,10 @@ model User {
   experienceYears  Int?      @map("experience_years")
 
   // student-only profile fields
-  dateOfBirth      DateTime? @map("date_of_birth") @db.Date
+  dateOfBirth      DateTime? @map("date_of_birth")
   address          String?
   parentName       String?   @map("parent_name")
-  enrollmentDate   DateTime? @default(now()) @map("enrollment_date") @db.Date
+  enrollmentDate   DateTime? @default(now()) @map("enrollment_date")
   batchId          String?   @map("batch_id")
 
   institute Institute @relation(fields: [instituteId], references: [id], onDelete: Cascade)
@@ -206,8 +184,8 @@ model TimetableSlot {
   instituteId           String   @map("institute_id")
   batchSubjectTeacherId String   @map("batch_subject_teacher_id")
   dayOfWeek             Int      @map("day_of_week") // 0 = Sunday .. 6 = Saturday
-  startTime             DateTime @map("start_time") @db.Time(0)
-  endTime               DateTime @map("end_time")   @db.Time(0)
+  startTime             DateTime @map("start_time")
+  endTime               DateTime @map("end_time")
   classroom             String?
   createdAt             DateTime @default(now()) @map("created_at")
 
@@ -228,7 +206,7 @@ model AttendanceSession {
   id                    String   @id @default(cuid())
   instituteId           String   @map("institute_id")
   batchSubjectTeacherId String   @map("batch_subject_teacher_id")
-  sessionDate           DateTime @map("session_date") @db.Date
+  sessionDate           DateTime @map("session_date")
   markedBy              String   @map("marked_by")
   submittedAt           DateTime @default(now()) @map("submitted_at")
 
@@ -246,7 +224,7 @@ model AttendanceRecord {
   id        String           @id @default(cuid())
   sessionId String           @map("session_id")
   studentId String           @map("student_id")
-  status    AttendanceStatus
+  status    String
 
   session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student User              @relation("StudentAttendance", fields: [studentId], references: [id], onDelete: Cascade)
@@ -268,8 +246,8 @@ model StudyMaterial {
   subjectId     String       @map("subject_id")
   uploadedBy    String       @map("uploaded_by")
   title         String
-  description   String?      @db.Text
-  materialType  MaterialType @map("material_type")
+  description   String?
+  materialType  String       @map("material_type")
   fileUrl       String?      @map("file_url")
   filePath      String?      @map("file_path")
   externalLink  String?      @map("external_link")
@@ -292,8 +270,8 @@ model Homework {
   subjectId   String   @map("subject_id")
   assignedBy  String   @map("assigned_by")
   title       String
-  description String?  @db.Text
-  dueDate     DateTime @map("due_date") @db.Date
+  description String?
+  dueDate     DateTime @map("due_date")
   fileUrl     String?  @map("file_url")
   filePath    String?  @map("file_path")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -315,7 +293,7 @@ model HomeworkStatus {
   id         String                   @id @default(cuid())
   homeworkId String                   @map("homework_id")
   studentId  String                   @map("student_id")
-  status     HomeworkCompletionStatus @default(pending)
+  status     String                   @default("pending")
   updatedAt  DateTime                 @default(now()) @map("updated_at")
 
   homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
@@ -337,7 +315,7 @@ model Exam {
   subjectId   String   @map("subject_id")
   createdBy   String   @map("created_by")
   name        String   // e.g. "Mid-Term", "Unit Test 1"
-  examDate    DateTime @map("exam_date") @db.Date
+  examDate    DateTime @map("exam_date")
   maxMarks    Float    @map("max_marks")
   createdAt   DateTime @default(now()) @map("created_at")
 
@@ -361,7 +339,7 @@ model Mark {
   examId         String  @map("exam_id")
   studentId      String  @map("student_id")
   marksObtained  Float   @map("marks_obtained")
-  remarks        String? @db.Text
+  remarks        String?
 
   exam    Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
   student User @relation("StudentMarks", fields: [studentId], references: [id], onDelete: Cascade)

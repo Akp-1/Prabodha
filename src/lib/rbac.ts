@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, TokenPayload, type Role } from './auth';
+import { isTokenRevoked, getUserActiveStatus } from './session';
 
 /**
  * Thrown by requireAuth/requireRole and caught by apiHandler below. Lets
@@ -16,21 +17,44 @@ export class ApiError extends Error {
 
 /**
  * Reads and verifies the Authorization: Bearer <token> header.
- * This is the direct equivalent of the Express `requireAuth` middleware —
- * every protected route calls this first to get req.user.
+ * Validates cryptographic signature, checks token revocation blocklist,
+ * and validates that the user account exists and isActive === true.
  */
-export function requireAuth(request: NextRequest): TokenPayload {
+export async function requireAuth(
+  request: NextRequest,
+  options?: { allowInactive?: boolean }
+): Promise<TokenPayload> {
   const header = request.headers.get('authorization') || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
 
   if (!token) {
     throw new ApiError(401, 'Missing or invalid Authorization header');
   }
+
+  let payload: TokenPayload;
   try {
-    return verifyToken(token);
+    payload = verifyToken(token);
   } catch {
     throw new ApiError(401, 'Invalid or expired token');
   }
+
+  // 1. Check if token was revoked (e.g. logged out)
+  if (isTokenRevoked(payload.jti)) {
+    throw new ApiError(401, 'Token has been revoked');
+  }
+
+  // 2. Validate user active status via high-speed cache with DB fallback
+  const userStatus = await getUserActiveStatus(payload.sub, payload.instituteId);
+  if (!userStatus) {
+    throw new ApiError(401, 'User account not found');
+  }
+
+  if (!options?.allowInactive && !userStatus.isActive) {
+    throw new ApiError(403, 'This account has been deactivated');
+  }
+
+  payload.role = userStatus.role as Role;
+  return payload;
 }
 
 /** Equivalent of the Express requireRole('admin') etc. */

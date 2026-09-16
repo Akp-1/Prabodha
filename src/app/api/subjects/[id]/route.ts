@@ -6,7 +6,7 @@ import { apiHandler, requireAuth, requireRole, ApiError } from '@/lib/rbac';
 export const dynamic = 'force-dynamic';
 
 export const GET = apiHandler(async (request: NextRequest, context) => {
-  const user = requireAuth(request);
+  const user = await requireAuth(request);
   const id = context?.params?.id || '';
 
   const subject = await prisma.subject.findUnique({
@@ -23,7 +23,7 @@ const patchSchema = z.object({
 });
 
 export const PATCH = apiHandler(async (request: NextRequest, context) => {
-  const user = requireAuth(request);
+  const user = await requireAuth(request);
   requireRole(user, 'admin');
   const id = context?.params?.id || '';
 
@@ -41,7 +41,7 @@ export const PATCH = apiHandler(async (request: NextRequest, context) => {
 });
 
 export const DELETE = apiHandler(async (request: NextRequest, context) => {
-  const user = requireAuth(request);
+  const user = await requireAuth(request);
   requireRole(user, 'admin');
   const id = context?.params?.id || '';
 
