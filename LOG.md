@@ -1154,3 +1154,40 @@ Created a dedicated session and user caching engine engineered to handle 100,000
 - **Zero-Dependency Approach**: Used native JS `Map` and sliding timestamps for rate limiting to adhere to minimalist principles, avoiding unnecessary Redis or third-party npm packages for local development.
 - **Targeted IP-Based Rate Limiting**: Placing limits at the endpoint entry point stops brute-force credential enumeration early before reaching bcrypt verification or database queries.
 
+---
+
+## Session 19 — 2026-09-21 (Evening)
+
+**Focus:** Reverting Database Provider to PostgreSQL for Supabase & Vercel Production Deployment
+
+### 1. Context & Root Cause Analysis
+- **Problem**: Vercel deployments failed because `prisma/schema.prisma` was previously configured with `provider = "sqlite"` and `dev.db`.
+- **Root Cause**:
+  1. Vercel runs Next.js in a serverless, read-only ephemeral execution environment. SQLite cannot persist or create local database files in Vercel lambdas.
+  2. When pointing `DATABASE_URL` to Supabase in Vercel (`postgresql://...`), Prisma Client threw fatal connection errors because the generated client was compiled specifically for SQLite.
+  3. Supabase is a managed PostgreSQL cluster requiring the PostgreSQL engine, native enums, and proper type mappings.
+
+### 2. What was done
+- **Prisma Schema Reversion (`prisma/schema.prisma`)**:
+  - Restored `datasource db` provider to `"postgresql"`.
+  - Re-enabled PostgreSQL native enums:
+    - `Role` (`admin`, `teacher`, `student`, `parent`)
+    - `MaterialType` (`pdf`, `image`, `note`, `link`)
+    - `AttendanceStatus` (`present`, `absent`)
+    - `HomeworkCompletionStatus` (`pending`, `completed`)
+  - Restored explicit PostgreSQL column type mappings (`@db.Date`, `@db.Time(0)`, `@db.Text`).
+  - Maintained all multi-tenant isolation indices (`@@index([instituteId])`) and `cuid()` ID generation.
+- **Environment Configuration (`.env.example`)**:
+  - Updated documentation with Supabase connection string patterns for both direct connections (port 5432) and transaction pooler (port 6543 with `?pgbouncer=true`).
+- **NPM Scripts (`package.json`)**:
+  - Added `"db:push": "prisma db push"` script for streamlined schema pushing to Supabase.
+- **Prisma Client Regeneration & Build Validation**:
+  - Executed `npx prisma generate` generating Prisma Client v5.22.0 with PostgreSQL provider.
+  - Executed `npx tsc --noEmit` passing with 0 errors.
+  - Executed `npm run build` (`prisma generate && next build`) successfully compiling all 18 static pages and 37 dynamic API routes.
+
+### 3. Key Decisions
+- **PostgreSQL as Canonical Provider**: Committed schema directly with `provider = "postgresql"` to ensure Vercel CI/CD pipelines compile the PostgreSQL Prisma engine automatically during deployment.
+- **`db:push` Support**: Added `prisma db push` script so tables and enums can be provisioned on fresh Supabase projects in seconds without SQLite migration lock conflicts.
+
+

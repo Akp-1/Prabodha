@@ -110,7 +110,7 @@ Please execute the following onboarding steps precisely:
 1. **Environment Setup:**
    - Run `npm install` to install all dependencies.
    - If there is no `.env` file, copy `.env.example` to `.env`.
-   - Run `npx prisma generate` and `npx prisma db push` (or `migrate dev`) to prepare the local SQLite database.
+   - Run `npx prisma generate` and `npx prisma db push` to prepare the PostgreSQL database.
 
 2. **Mandatory Context Gathering (Read Before Writing Code):**
    - Read `agent.md` in the root directory for master architectural rules, coding standards, and multi-tenant invariants.
